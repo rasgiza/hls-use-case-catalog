@@ -1,0 +1,1203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Asterion Data Platform - Migration Control Room</title>
+  <style>
+    :root {
+      --ink: #17202b;
+      --muted: #647181;
+      --canvas: #edf1f4;
+      --surface: #fff;
+      --surface-alt: #f7f9fa;
+      --line: #d4dce3;
+      --line-strong: #b8c4ce;
+      --accent: #006f8d;
+      --accent-dark: #004f67;
+      --accent-soft: #e2f3f6;
+      --green: #1d6b4a;
+      --green-soft: #e5f3eb;
+      --amber: #8a5600;
+      --amber-soft: #fff2d7;
+      --red: #a53b3b;
+      --red-soft: #fbe9e9;
+      --focus: #165dcb;
+      --radius: 6px;
+      --mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    [hidden] { display: none !important; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+      -webkit-text-size-adjust: 100%;
+    }
+    :where(button, a, select, textarea):focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 2px;
+    }
+    button, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .55; }
+    a { color: var(--accent-dark); }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+      min-height: 62px;
+      padding: 10px 22px;
+      color: #eef8fa;
+      background: #102d38;
+      border-bottom: 3px solid #42a6b8;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      margin-right: auto;
+    }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border: 1px solid #72c1ce;
+      border-radius: 5px;
+      color: #b9edf2;
+      font-weight: 750;
+      letter-spacing: -.05em;
+    }
+    .brand-name { font-weight: 700; letter-spacing: .01em; }
+    .brand-sub { display: block; color: #a9c1c8; font-size: 12px; }
+    .user-context {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px 16px;
+      color: #c0d2d7;
+      font-size: 12.5px;
+      text-align: right;
+    }
+    .user-context strong { color: #f1fbfc; font-weight: 650; }
+    .disclosure {
+      flex: none;
+      padding: 5px 10px;
+      color: #e4f7f8;
+      background: #1a4957;
+      border: 1px solid #4e8994;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(240px, 290px) minmax(0, 1fr);
+      min-height: calc(100vh - 62px);
+      gap: 1px;
+      background: var(--line);
+    }
+    .sidebar, .main { min-width: 0; }
+    .sidebar {
+      padding: 17px 14px;
+      background: #f5f7f8;
+    }
+    .sidebar h2, .section-title {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .01em;
+    }
+    .sidebar h2 { color: var(--muted); }
+    .queue {
+      display: grid;
+      gap: 8px;
+      margin-top: 11px;
+    }
+    .queue-item {
+      width: 100%;
+      padding: 11px 12px;
+      color: var(--ink);
+      text-align: left;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--line-strong);
+      border-radius: var(--radius);
+    }
+    .queue-item:hover { border-color: #8ba3af; }
+    .queue-item[aria-current="true"] {
+      border-color: #6bb3c0;
+      border-left-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .queue-item strong { display: block; font-size: 13.5px; }
+    .queue-item span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .queue-item .queue-status {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 2px 7px;
+      color: var(--amber);
+      background: var(--amber-soft);
+      border: 1px solid #e6c97d;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 650;
+    }
+    .sidebar-block {
+      margin-top: 23px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+    .sidebar-block h3 {
+      margin: 0 0 9px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .stakeholders {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+    }
+    .stakeholders div { display: grid; gap: 1px; }
+    .stakeholders dt { color: var(--muted); font-size: 11.5px; }
+    .stakeholders dd { margin: 0; font-size: 12.5px; }
+    .catalog-note {
+      margin: 21px 0 0;
+      padding: 10px 11px;
+      color: var(--muted);
+      background: #eef4f5;
+      border: 1px solid #d2e1e4;
+      border-radius: var(--radius);
+      font-size: 12px;
+    }
+
+    .main {
+      padding: 18px 20px 32px;
+      background: var(--canvas);
+    }
+    .main-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px 20px;
+      margin-bottom: 15px;
+    }
+    .eyebrow {
+      margin: 0 0 4px;
+      color: var(--accent-dark);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(20px, 2.2vw, 27px);
+      line-height: 1.2;
+      letter-spacing: -.02em;
+    }
+    .subtitle {
+      max-width: 760px;
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .btn {
+      min-height: 38px;
+      padding: 8px 13px;
+      color: var(--ink);
+      background: var(--surface);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .btn:hover:not(:disabled) { border-color: var(--accent); }
+    .btn-primary {
+      color: #fff;
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-dark); }
+    .btn-subtle {
+      color: var(--accent-dark);
+      background: var(--accent-soft);
+      border-color: #a3d2d9;
+    }
+    .btn-danger {
+      color: var(--red);
+      background: var(--red-soft);
+      border-color: #e5b6b6;
+    }
+
+    .card {
+      min-width: 0;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+    .card-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 6px 14px;
+      padding: 12px 15px;
+      border-bottom: 1px solid #e5eaee;
+    }
+    .card-header h2, .card-header h3 { margin: 0; font-size: 14px; }
+    .card-header > * { min-width: 0; }
+    .card-header p { max-width: 100%; margin: 0; color: var(--muted); font-size: 12px; }
+    .card-body { padding: 14px 15px; }
+    .stage-card { margin-bottom: 15px; }
+    .stage-card .card-body { padding: 12px 15px 14px; }
+    .stages {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 9px;
+    }
+    .stage {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      padding: 7px 9px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--surface-alt);
+    }
+    .stage-number {
+      display: grid;
+      place-items: center;
+      width: 25px;
+      height: 25px;
+      border-radius: 50%;
+      color: var(--muted);
+      background: #e4e9ed;
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .stage-name { display: block; font-weight: 700; font-size: 12.5px; }
+    .stage-state { display: block; color: var(--muted); font-size: 11.5px; }
+    .stage.current {
+      border-color: #8fc8d0;
+      background: var(--accent-soft);
+    }
+    .stage.current .stage-number { color: #fff; background: var(--accent); }
+    .stage.done { border-color: #abd3be; background: var(--green-soft); }
+    .stage.done .stage-number { color: #fff; background: var(--green); }
+
+    .object-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+      gap: 15px;
+      align-items: start;
+    }
+    .object-summary {
+      display: grid;
+      gap: 14px;
+    }
+    .object-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 12px;
+      margin-bottom: 1px;
+    }
+    .object-title h2 { margin: 0; font-size: 19px; line-height: 1.25; }
+    .state-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 25px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 700;
+    }
+    .state-ready { color: var(--amber); background: var(--amber-soft); border: 1px solid #e7ca81; }
+    .state-working { color: var(--accent-dark); background: var(--accent-soft); border: 1px solid #a3d2d9; }
+    .state-review { color: var(--green); background: var(--green-soft); border: 1px solid #abd3be; }
+    .state-escalated { color: var(--red); background: var(--red-soft); border: 1px solid #e5b6b6; }
+    .facts {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px 18px;
+      margin: 0;
+    }
+    .facts dt {
+      margin-bottom: 2px;
+      color: var(--muted);
+      font-size: 11.5px;
+    }
+    .facts dd { margin: 0; font-size: 13px; }
+    .mono { font-family: var(--mono); font-size: 12px !important; }
+    .route {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .route strong { color: var(--ink); font-weight: 650; }
+    .route-arrow { color: var(--accent); font-size: 17px; }
+    .workload-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 9px;
+    }
+    .workload {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      color: var(--accent-dark);
+      background: var(--accent-soft);
+      border: 1px solid #b4d9de;
+      border-radius: 4px;
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+    .workload a { color: inherit; text-decoration: none; }
+    .workload a:hover { text-decoration: underline; }
+    .next-action {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      background: #f4fafb;
+      border: 1px solid #c8e3e7;
+      border-left: 4px solid var(--accent);
+      border-radius: var(--radius);
+    }
+    .next-action strong { font-size: 13px; }
+    .next-action p { margin: 0; color: var(--muted); font-size: 12.5px; }
+    .action-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .evidence {
+      display: grid;
+      gap: 11px;
+    }
+    .evidence-block {
+      padding: 10px 11px;
+      background: var(--surface-alt);
+      border: 1px solid #e2e7ea;
+      border-radius: 5px;
+    }
+    .evidence-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 11.5px;
+      font-weight: 700;
+    }
+    .evidence-label button {
+      padding: 0;
+      color: var(--accent-dark);
+      background: none;
+      border: 0;
+      font-size: 11.5px;
+      text-decoration: underline;
+    }
+    .evidence-value { font-weight: 650; }
+    .evidence-detail { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+    .source-list {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .source-list li {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .source-list span:last-child { color: var(--muted); font-family: var(--mono); font-size: 10.5px; }
+    .evidence-note {
+      margin: 0;
+      padding: 8px 10px;
+      color: var(--muted);
+      border-left: 3px solid #a9bcc4;
+      font-size: 11.5px;
+    }
+
+    .assessment-card { margin-top: 15px; }
+    .assessment-content { min-height: 196px; }
+    .empty-assessment {
+      display: grid;
+      align-content: center;
+      justify-items: start;
+      min-height: 165px;
+      gap: 8px;
+      color: var(--muted);
+    }
+    .empty-assessment strong { color: var(--ink); font-size: 14px; }
+    .empty-assessment p { max-width: 58ch; margin: 0; font-size: 12.5px; }
+    .assessment-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 24px;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .loading-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 1s ease-in-out infinite;
+    }
+    @keyframes pulse { 50% { opacity: .3; } }
+    .check-list {
+      display: grid;
+      gap: 0;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .check-row {
+      display: grid;
+      grid-template-columns: 22px minmax(0, 1fr) auto;
+      align-items: start;
+      gap: 9px;
+      padding: 10px 11px;
+      border-top: 1px solid #e5eaee;
+    }
+    .check-row:first-child { border-top: 0; }
+    .check-mark {
+      display: grid;
+      place-items: center;
+      width: 19px;
+      height: 19px;
+      color: #fff;
+      background: var(--green);
+      border-radius: 50%;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .check-row.exception .check-mark { color: var(--amber); background: var(--amber-soft); border: 1px solid #e5c57a; }
+    .check-row.escalated .check-mark { color: var(--red); background: var(--red-soft); border: 1px solid #e5b6b6; }
+    .check-name { display: block; font-size: 12.5px; font-weight: 650; }
+    .check-detail { display: block; margin-top: 2px; color: var(--muted); font-size: 11.5px; }
+    .check-status { color: var(--green); font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .check-row.exception .check-status { color: var(--amber); }
+    .check-row.escalated .check-status { color: var(--red); }
+    .check-action {
+      grid-column: 2 / -1;
+      justify-self: start;
+      margin-top: 2px;
+      padding: 0;
+      color: var(--accent-dark);
+      background: none;
+      border: 0;
+      font-size: 11.5px;
+      text-decoration: underline;
+    }
+
+    .lower-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(270px, .8fr);
+      gap: 15px;
+      margin-top: 15px;
+    }
+    .review-box {
+      display: grid;
+      gap: 10px;
+    }
+    .review-box p { margin: 0; color: var(--muted); font-size: 12.5px; }
+    .review-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .review-field { display: grid; gap: 4px; }
+    .review-field label { color: var(--muted); font-size: 11.5px; }
+    .review-field select, .review-field textarea {
+      width: 100%;
+      padding: 7px 8px;
+      color: var(--ink);
+      background: var(--surface);
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .review-field textarea { min-height: 62px; resize: vertical; }
+    .audit-list {
+      display: grid;
+      gap: 9px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .audit-list li {
+      display: grid;
+      grid-template-columns: 57px minmax(0, 1fr);
+      gap: 8px;
+      font-size: 11.5px;
+    }
+    .audit-list time { color: var(--muted); font-family: var(--mono); }
+    .audit-list span { color: var(--muted); }
+    .audit-list strong { color: var(--ink); font-weight: 650; }
+    .exception-detail {
+      margin-top: 12px;
+      padding: 11px 12px;
+      background: var(--amber-soft);
+      border: 1px solid #e7cb86;
+      border-radius: 5px;
+    }
+    .exception-detail h3 { margin: 0 0 4px; color: var(--amber); font-size: 13px; }
+    .exception-detail p { margin: 0; color: #684a15; font-size: 12px; }
+    .exception-detail .action-row { margin-top: 10px; }
+    .footer-note {
+      margin: 19px 0 0;
+      color: var(--muted);
+      font-size: 11.5px;
+    }
+
+    @media (max-width: 900px) {
+      .workspace { grid-template-columns: 220px minmax(0, 1fr); }
+      .main { padding-inline: 14px; }
+      .object-grid, .lower-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 650px) {
+      .topbar { align-items: flex-start; padding: 10px 14px; }
+      .user-context { justify-content: flex-start; text-align: left; }
+      .workspace { display: block; }
+      .sidebar { padding: 12px 14px; }
+      .queue { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .sidebar-block, .catalog-note { display: none; }
+      .main { padding: 15px 12px 28px; }
+      .stages { grid-template-columns: 1fr; gap: 6px; }
+      .stage { grid-template-columns: 25px minmax(0, 1fr); }
+      .stage-number { width: 23px; height: 23px; }
+      .facts, .review-row { grid-template-columns: 1fr; }
+      .check-row { grid-template-columns: 21px minmax(0, 1fr); }
+      .check-status { grid-column: 2; grid-row: 1; justify-self: start; }
+      .check-action { grid-column: 2; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">AD</span>
+      <div>
+        <span class="brand-name">Asterion Data Platform</span>
+        <span class="brand-sub">Migration control room</span>
+      </div>
+    </div>
+    <div class="user-context">
+      <span><strong>Chief Data Officer</strong> · Morgan Vale</span>
+      <span>Assessment workspace · 17 Sep 2026</span>
+    </div>
+    <span class="disclosure">Illustrative demo - synthetic data</span>
+  </header>
+
+  <div class="workspace">
+    <aside class="sidebar" aria-label="Migration navigation">
+      <h2>Assessment queue</h2>
+      <div class="queue">
+        <button class="queue-item" type="button" aria-current="true">
+          <strong>Wave 01 · Device telemetry</strong>
+          <span>Northstar Warehouse → Azure</span>
+          <span class="queue-status" data-queue-status>Assessment ready</span>
+        </button>
+        <button class="queue-item" type="button" aria-current="false" data-empty-wave>
+          <strong>Wave 02 · Quality events</strong>
+          <span>Inventory not started</span>
+          <span class="queue-status">Not started</span>
+        </button>
+      </div>
+
+      <section class="sidebar-block" aria-labelledby="stakeholder-title">
+        <h3 id="stakeholder-title">Working group</h3>
+        <dl class="stakeholders">
+          <div><dt>Data Platform Architect</dt><dd>Rina Sol</dd></div>
+          <div><dt>Analytics Lead</dt><dd>Devon Hart</dd></div>
+          <div><dt>FinOps Lead</dt><dd>Casey Lin</dd></div>
+          <div><dt>Security Lead</dt><dd>Samir Quill</dd></div>
+        </dl>
+      </section>
+      <p class="catalog-note">Assessment is the starting motion. A phased cutover and parallel validation keep migration and report risk visible before any production decision.</p>
+    </aside>
+
+    <main class="main">
+      <div class="main-header">
+        <div>
+          <p class="eyebrow">Data, AI &amp; Platform Foundation · Assessment</p>
+          <h1>Third-party warehouse migration</h1>
+          <p class="subtitle">Review the evidence for a fictional migration wave, record readiness findings, and prepare a parallel-run plan for accountable human review.</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn" type="button" data-reset>Reset demo</button>
+        </div>
+      </div>
+
+      <section class="card stage-card" aria-labelledby="stage-title">
+        <div class="card-header">
+          <h2 id="stage-title">Migration decision path</h2>
+          <p data-stage-help>Assessment is the active stage</p>
+        </div>
+        <div class="card-body">
+          <div class="stages" aria-label="Migration stages">
+            <div class="stage current" data-stage="assessment">
+              <span class="stage-number">1</span>
+              <span><span class="stage-name">Assessment</span><span class="stage-state">Ready to run</span></span>
+            </div>
+            <div class="stage" data-stage="parallel">
+              <span class="stage-number">2</span>
+              <span><span class="stage-name">Parallel run</span><span class="stage-state">Pending evidence</span></span>
+            </div>
+            <div class="stage" data-stage="cutover">
+              <span class="stage-number">3</span>
+              <span><span class="stage-name">Cutover review</span><span class="stage-state">Human gate</span></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="object-grid" aria-labelledby="wave-title">
+        <article class="card object-summary">
+          <div class="card-header">
+            <div class="object-title">
+              <h2 id="wave-title">Wave 01 · Device telemetry</h2>
+              <span class="state-pill state-ready" data-wave-state>Assessment ready</span>
+            </div>
+            <p class="mono">WAVE-SYN-014</p>
+          </div>
+          <div class="card-body">
+            <dl class="facts">
+              <div><dt>Source warehouse</dt><dd>Northstar Warehouse <span class="mono">(fictional)</span></dd></div>
+              <div><dt>Business owner</dt><dd>Jules Orin · Analytics Lead</dd></div>
+              <div><dt>Inventory snapshot</dt><dd>17 Sep 2026 · sample capture</dd></div>
+              <div><dt>Migration posture</dt><dd data-posture>Evidence not yet assessed</dd></div>
+            </dl>
+            <div class="route" aria-label="Migration route">
+              <strong>Northstar Warehouse</strong><span class="route-arrow" aria-hidden="true">→</span><strong>Azure lakehouse on Databricks and Fabric</strong>
+            </div>
+            <div>
+              <span class="evidence-label">Mapped Azure workloads</span>
+              <div class="workload-list">
+                <span class="workload"><a href="https://learn.microsoft.com/azure/databricks/" target="_blank" rel="noreferrer">Azure Databricks</a></span>
+                <span class="workload"><a href="https://learn.microsoft.com/fabric/" target="_blank" rel="noreferrer">Microsoft Fabric</a></span>
+                <span class="workload"><a href="https://learn.microsoft.com/azure/storage/" target="_blank" rel="noreferrer">Azure Storage</a></span>
+                <span class="workload"><a href="https://learn.microsoft.com/purview/" target="_blank" rel="noreferrer">Microsoft Purview</a></span>
+              </div>
+            </div>
+            <div class="next-action">
+              <strong data-next-title>Next action: run the readiness assessment</strong>
+              <p data-next-copy>Compare schema, report dependencies, governance mapping, and the fictional capacity baseline before proposing a phased cutover.</p>
+              <div class="action-row">
+                <button class="btn btn-primary" type="button" data-run>Run readiness assessment</button>
+                <button class="btn btn-subtle" type="button" data-evidence>View source evidence</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card evidence" aria-labelledby="evidence-title">
+          <div class="card-header">
+            <h2 id="evidence-title">Source evidence</h2>
+            <p data-evidence-status>Snapshot attached</p>
+          </div>
+          <div class="card-body">
+            <div class="evidence-block">
+              <div class="evidence-label"><span>Warehouse profile</span><button type="button" data-evidence>inspect</button></div>
+              <div class="evidence-value">Northstar Warehouse / telemetry schema</div>
+              <p class="evidence-detail">Fictional source profile · sample inventory SYN-INV-204</p>
+            </div>
+            <div class="evidence-block">
+              <div class="evidence-label"><span>Objects in wave</span><span>sample count</span></div>
+              <div class="evidence-value">42 tables · 6 scheduled reports</div>
+              <p class="evidence-detail">Counts are fictional operational data, not customer outcomes.</p>
+            </div>
+            <div class="evidence-block">
+              <div class="evidence-label"><span>Referenced source artifacts</span><span>3 files</span></div>
+              <ul class="source-list">
+                <li><span>schema_snapshot_014.sql</span><span>09:14</span></li>
+                <li><span>report_dependency_map.csv</span><span>09:16</span></li>
+                <li><span>governance_register_014.csv</span><span>09:18</span></li>
+              </ul>
+            </div>
+            <p class="evidence-note">The assessment summarizes fictional artifacts. It does not connect to a warehouse or validate a real report.</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="card assessment-card" aria-labelledby="assessment-title">
+        <div class="card-header">
+          <h2 id="assessment-title">Readiness assessment</h2>
+          <p data-assessment-meta>Not run · reviewer action required</p>
+        </div>
+        <div class="card-body assessment-content" data-assessment-content>
+          <div class="empty-assessment">
+            <strong>No assessment recorded</strong>
+            <p>Run the sample assessment to make the evidence visible. A finding can recommend the next safe step, but it cannot approve migration or cutover.</p>
+          </div>
+        </div>
+      </section>
+
+      <div class="lower-grid">
+        <section class="card" aria-labelledby="review-title">
+          <div class="card-header">
+            <h2 id="review-title">Human review gate</h2>
+            <p data-review-state>Awaiting assessment</p>
+          </div>
+          <div class="card-body review-box">
+            <p data-review-copy>After the assessment, prepare a parallel-run plan and assign an accountable reviewer. The demo never approves a cutover automatically.</p>
+            <div class="review-row">
+              <div class="review-field">
+                <label for="reviewer">Accountable reviewer</label>
+                <select id="reviewer" data-reviewer>
+                  <option>Rina Sol · Data Platform Architect</option>
+                  <option>Devon Hart · Analytics Lead</option>
+                  <option>Samir Quill · Security Lead</option>
+                </select>
+              </div>
+              <div class="review-field">
+                <label for="rationale">Review rationale</label>
+                <textarea id="rationale" data-rationale>Confirm report dependency ownership before parallel validation.</textarea>
+              </div>
+            </div>
+            <div class="action-row">
+              <button class="btn btn-primary" type="button" data-review disabled>Request architecture review</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="audit-title">
+          <div class="card-header">
+            <h2 id="audit-title">Activity log</h2>
+            <p>Sample audit trail</p>
+          </div>
+          <div class="card-body">
+            <ol class="audit-list" data-audit>
+              <li><time>09:20</time><span><strong>Morgan Vale</strong> opened Wave 01 for assessment.</span></li>
+              <li><time>09:18</time><span>Source snapshot <strong>SYN-INV-204</strong> attached.</span></li>
+              <li><time>09:12</time><span><strong>Jules Orin</strong> marked inventory ready.</span></li>
+            </ol>
+          </div>
+        </section>
+      </div>
+
+      <p class="footer-note">Catalog anchor: Third-Party Data Warehouse Migration to Azure · Confirmed input · All names, identifiers, counts, and findings on this screen are fictional sample data.</p>
+      <div class="sr-only" aria-live="polite" data-live></div>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      const FIXTURES = {
+        waveId: "WAVE-SYN-014",
+        sourceId: "SYN-INV-204",
+        checks: [
+          {
+            name: "Schema and table inventory",
+            detail: "42 sample tables mapped to the proposed migration wave.",
+            status: "Ready",
+            kind: "pass"
+          },
+          {
+            name: "Report dependency validation",
+            detail: "5 of 6 sample reports map cleanly; report R-17 has an unverified owner.",
+            status: "Needs review",
+            kind: "exception"
+          },
+          {
+            name: "Governance register alignment",
+            detail: "Sample data domains have an assigned governance review path.",
+            status: "Ready",
+            kind: "pass"
+          },
+          {
+            name: "Capacity planning input",
+            detail: "Fictional workload profile captured for FinOps sizing discussion.",
+            status: "Ready",
+            kind: "pass"
+          }
+        ]
+      };
+
+      const state = {
+        phase: "ready",
+        dependency: "needs-review",
+        planReady: false,
+        evidenceVisible: false,
+        assessmentTimer: null,
+        planTimer: null
+      };
+
+      const $ = (selector) => document.querySelector(selector);
+      const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+      const runButton = $("[data-run]");
+      const reviewButton = $("[data-review]");
+      const assessmentContent = $("[data-assessment-content]");
+      const live = $("[data-live]");
+      const audit = $("[data-audit]");
+
+      function announce(message) {
+        live.textContent = "";
+        window.setTimeout(() => { live.textContent = message; }, 20);
+      }
+
+      function setText(selector, value) {
+        $$(selector).forEach((element) => { element.textContent = value; });
+      }
+
+      function addAudit(time, message, actor) {
+        const item = document.createElement("li");
+        const stamp = document.createElement("time");
+        const copy = document.createElement("span");
+        stamp.textContent = time;
+        copy.append(document.createTextNode(`${actor} `));
+        const strong = document.createElement("strong");
+        strong.textContent = message;
+        copy.append(strong);
+        item.append(stamp, copy);
+        audit.prepend(item);
+      }
+
+      function renderStages() {
+        const stages = {
+          assessment: {
+            title: "Assessment",
+            ready: "Ready to run",
+            working: "Assessing sample evidence",
+            result: "Findings recorded",
+            review: "Findings recorded"
+          },
+          parallel: {
+            title: "Parallel run",
+            ready: "Pending evidence",
+            working: "Drafting sample plan",
+            result: "Plan ready for review",
+            review: "Plan ready for review"
+          },
+          cutover: {
+            title: "Cutover review",
+            ready: "Human gate",
+            working: "Human gate",
+            result: "Human gate",
+            review: "Review requested"
+          }
+        };
+        const phaseForStage = state.phase === "ready" ? "assessment" : state.phase === "working" ? "assessment" : state.phase === "result" ? "parallel" : "cutover";
+        $$(".stage").forEach((stage) => {
+          const key = stage.dataset.stage;
+          stage.classList.toggle("current", key === phaseForStage);
+          stage.classList.toggle("done", (key === "assessment" && ["result", "review"].includes(state.phase)) || (key === "parallel" && state.phase === "review"));
+          stage.querySelector(".stage-state").textContent = stages[key][state.phase] || stages[key].ready;
+        });
+        const help = {
+          ready: "Assessment is the active stage",
+          working: "Working through fictional source evidence",
+          result: "Assessment complete · parallel-run plan is next",
+          review: "Review request prepared · human decision remains open"
+        };
+        setText("[data-stage-help]", help[state.phase]);
+      }
+
+      function renderCheckList() {
+        assessmentContent.replaceChildren();
+        const status = document.createElement("div");
+        status.className = "assessment-status";
+        status.textContent = state.phase === "working" ? "Reading the sample inventory and dependency map…" : "Assessment complete · 4 checks recorded · no cutover approval";
+        if (state.phase === "working") {
+          const dot = document.createElement("span");
+          dot.className = "loading-dot";
+          dot.setAttribute("aria-hidden", "true");
+          status.prepend(dot);
+        }
+        assessmentContent.append(status);
+
+        const list = document.createElement("ul");
+        list.className = "check-list";
+        FIXTURES.checks.forEach((check) => {
+          const row = document.createElement("li");
+          row.className = `check-row ${check.kind}${state.dependency === "escalated" && check.kind === "exception" ? " escalated" : ""}`;
+          const mark = document.createElement("span");
+          mark.className = "check-mark";
+          mark.setAttribute("aria-hidden", "true");
+          mark.textContent = check.kind === "pass" ? "✓" : state.dependency === "escalated" ? "!" : "!";
+          const copy = document.createElement("span");
+          const name = document.createElement("span");
+          name.className = "check-name";
+          name.textContent = check.name;
+          const detail = document.createElement("span");
+          detail.className = "check-detail";
+          detail.textContent = state.dependency === "escalated" && check.kind === "exception"
+            ? "Escalated to the Analytics Lead; no automatic resolution recorded."
+            : check.detail;
+          copy.append(name, detail);
+          const statusLabel = document.createElement("span");
+          statusLabel.className = "check-status";
+          statusLabel.textContent = state.dependency === "escalated" && check.kind === "exception" ? "Escalated" : check.status;
+          row.append(mark, copy, statusLabel);
+          if (check.kind === "exception") {
+            const inspect = document.createElement("button");
+            inspect.type = "button";
+            inspect.className = "check-action";
+            inspect.dataset.dependency = "true";
+            inspect.textContent = state.dependency === "escalated" ? "View escalation detail" : "Inspect dependency exception";
+            row.append(inspect);
+          }
+          list.append(row);
+        });
+        assessmentContent.append(list);
+        const plan = document.createElement("div");
+        plan.className = "action-row";
+        plan.style.marginTop = "11px";
+        const planButton = document.createElement("button");
+        planButton.type = "button";
+        planButton.className = "btn btn-primary";
+        planButton.dataset.plan = "true";
+        planButton.disabled = state.phase !== "result";
+        planButton.textContent = state.phase === "review" ? "Parallel-run plan submitted" : "Prepare parallel-run plan";
+        plan.append(planButton);
+        assessmentContent.append(plan);
+        planButton.addEventListener("click", preparePlan);
+      }
+
+      function renderAssessment() {
+        if (state.phase === "ready") {
+          assessmentContent.replaceChildren();
+          const empty = document.createElement("div");
+          empty.className = "empty-assessment";
+          const heading = document.createElement("strong");
+          heading.textContent = "No assessment recorded";
+          const copy = document.createElement("p");
+          copy.textContent = "Run the sample assessment to make the evidence visible. A finding can recommend the next safe step, but it cannot approve migration or cutover.";
+          empty.append(heading, copy);
+          assessmentContent.append(empty);
+          return;
+        }
+        renderCheckList();
+      }
+
+      function renderState() {
+        const labels = {
+          ready: ["Assessment ready", "state-ready"],
+          working: ["Assessment in progress", "state-working"],
+          result: ["Findings need review", "state-ready"],
+          review: ["Review requested", "state-review"]
+        };
+        const [label, className] = labels[state.phase];
+        const statePill = $("[data-wave-state]");
+        statePill.textContent = label;
+        statePill.className = `state-pill ${className}`;
+        setText("[data-posture]", {
+          ready: "Evidence not yet assessed",
+          working: "Assessment in progress",
+          result: "Findings need review",
+          review: "Parallel-run plan submitted"
+        }[state.phase]);
+        setText("[data-assessment-meta]", {
+          ready: "Not run · reviewer action required",
+          working: "Working · deterministic sample run",
+          result: "Complete · 4 checks recorded",
+          review: "Plan submitted · human review open"
+        }[state.phase]);
+        setText("[data-queue-status]", label);
+        setText("[data-next-title]", {
+          ready: "Next action: run the readiness assessment",
+          working: "Next action: wait for the assessment result",
+          result: "Next action: prepare the parallel-run plan",
+          review: "Next action: review the submitted plan"
+        }[state.phase]);
+        setText("[data-next-copy]", {
+          ready: "Compare schema, report dependencies, governance mapping, and the fictional capacity baseline before proposing a phased cutover.",
+          working: "The sample run is deterministic. No source system is contacted and no migration action is started.",
+          result: "The plan will document parallel validation while leaving cutover approval with the named reviewer.",
+          review: "The reviewer must verify the dependency rationale and decide the next step outside this illustrative screen."
+        }[state.phase]);
+        setText("[data-review-state]", state.phase === "review" ? "Request recorded · decision open" : state.phase === "ready" ? "Awaiting assessment" : "Reviewer assignment required");
+        setText("[data-review-copy]", state.phase === "review"
+          ? "The review request is recorded for the selected human owner. This demo does not approve, execute, or schedule a cutover."
+          : "After the assessment, prepare a parallel-run plan and assign an accountable reviewer. The demo never approves a cutover automatically.");
+        runButton.disabled = state.phase !== "ready";
+        runButton.textContent = state.phase === "working" ? "Assessment running…" : "Run readiness assessment";
+        reviewButton.disabled = state.phase !== "result" || !state.planReady;
+        reviewButton.textContent = state.phase === "review"
+          ? "Review request recorded"
+          : state.planReady ? "Request architecture review" : "Prepare the plan first";
+        renderStages();
+        renderAssessment();
+      }
+
+      function runAssessment() {
+        if (state.phase !== "ready") return;
+        state.phase = "working";
+        renderState();
+        announce("Assessment started. Reading fictional source evidence.");
+        state.assessmentTimer = window.setTimeout(() => {
+          state.phase = "result";
+          renderState();
+          addAudit("09:24", "readiness findings recorded", "Morgan Vale");
+          announce("Assessment complete. One report dependency needs human review.");
+        }, 900);
+      }
+
+      function preparePlan() {
+        if (state.phase !== "result") return;
+        state.phase = "working";
+        renderState();
+        setText("[data-assessment-meta]", "Working · drafting sample plan");
+        announce("Preparing a parallel-run plan for human review.");
+        state.planTimer = window.setTimeout(() => {
+          state.phase = "result";
+          state.planReady = true;
+          renderState();
+          $("[data-review]").disabled = false;
+          addAudit("09:26", "parallel-run plan drafted", "Morgan Vale");
+          announce("Parallel-run plan drafted. Assign a reviewer before requesting architecture review.");
+        }, 850);
+      }
+
+      function requestReview() {
+        if (state.phase !== "result" || !state.planReady) return;
+        const reviewer = $("[data-reviewer]").value.split(" · ")[0];
+        const rationale = $("[data-rationale]").value.trim();
+        if (!rationale) {
+          $("[data-rationale]").focus();
+          announce("Add a review rationale before requesting architecture review.");
+          return;
+        }
+        state.phase = "review";
+        renderState();
+        addAudit("09:28", `architecture review requested for ${reviewer}`, "Morgan Vale");
+        announce(`Architecture review requested for ${reviewer}. Human decision remains open.`);
+      }
+
+      function showDependency() {
+        const existing = $("[data-exception]");
+        if (existing) {
+          existing.remove();
+          state.evidenceVisible = false;
+          return;
+        }
+        const detail = document.createElement("div");
+        detail.className = "exception-detail";
+        detail.dataset.exception = "true";
+        const heading = document.createElement("h3");
+        heading.textContent = "Exception: report R-17 owner is unverified";
+        const copy = document.createElement("p");
+        copy.textContent = "The fictional dependency map links report R-17 to a retired workspace. An Analytics Lead must confirm ownership before the parallel run can be treated as representative.";
+        const actions = document.createElement("div");
+        actions.className = "action-row";
+        const escalate = document.createElement("button");
+        escalate.type = "button";
+        escalate.className = "btn btn-danger";
+        escalate.textContent = "Escalate to Analytics Lead";
+        escalate.addEventListener("click", escalateDependency);
+        const close = document.createElement("button");
+        close.type = "button";
+        close.className = "btn";
+        close.textContent = "Keep in review";
+        close.addEventListener("click", () => detail.remove());
+        actions.append(escalate, close);
+        detail.append(heading, copy, actions);
+        assessmentContent.append(detail);
+        announce("Dependency exception opened. Report R-17 requires an Analytics Lead.");
+      }
+
+      function escalateDependency() {
+        state.dependency = "escalated";
+        renderAssessment();
+        addAudit("09:27", "report R-17 escalated to the Analytics Lead", "Morgan Vale");
+        announce("Report R-17 escalated. No automatic resolution was recorded.");
+      }
+
+      function toggleEvidence() {
+        state.evidenceVisible = !state.evidenceVisible;
+        const card = document.querySelector(".evidence");
+        card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        card.style.boxShadow = state.evidenceVisible ? "0 0 0 3px #8fc8d0" : "";
+        setText("[data-evidence-status]", state.evidenceVisible ? "Reviewing attached snapshot" : "Snapshot attached");
+        announce(state.evidenceVisible ? "Source evidence highlighted." : "Source evidence highlight cleared.");
+      }
+
+      function reset() {
+        window.clearTimeout(state.assessmentTimer);
+        window.clearTimeout(state.planTimer);
+        state.phase = "ready";
+        state.dependency = "needs-review";
+        state.planReady = false;
+        state.evidenceVisible = false;
+        $("[data-rationale]").value = "Confirm report dependency ownership before parallel validation.";
+        $("[data-reviewer]").selectedIndex = 0;
+        document.querySelector(".evidence").style.boxShadow = "";
+        renderState();
+        announce("Demo reset. Wave 01 is ready for assessment.");
+      }
+
+      runButton.addEventListener("click", runAssessment);
+      reviewButton.addEventListener("click", requestReview);
+      $("[data-reset]").addEventListener("click", reset);
+      $$("[data-evidence]").forEach((button) => button.addEventListener("click", toggleEvidence));
+      assessmentContent.addEventListener("click", (event) => {
+        if (event.target.closest("[data-dependency]")) showDependency();
+      });
+      $("[data-empty-wave]").addEventListener("click", () => {
+        announce("Wave 02 is an empty state. Its inventory has not started.");
+        $("[data-empty-wave]").focus();
+      });
+      renderState();
+    })();
+  </script>
+</body>
+</html>
