@@ -2,13 +2,19 @@
 import assert from 'node:assert/strict';
 import { validateDemoSource } from './demo-validation.mjs';
 
+const IDENTITY = `:root{--ink:#201f1e;--muted:#605e5c;--line:#e1dfdd;--line-soft:#edebe9;--bg:#faf9f8;--surface:#ffffff;--surface-2:#f3f2f1;--radius:8px;}
+body[data-subvertical="health-providers"]{--accent:#038387;}
+body[data-subvertical="health-payers"]{--accent:#0b6a0b;}
+body[data-subvertical="pharma-life-sciences"]{--accent:#8764b8;}
+body[data-subvertical="medtech"]{--accent:#ca5010;}`;
+
 const valid = `<!doctype html>
 <html lang="en"><head><meta name="viewport" content="width=device-width"><title>Demo</title>
-<style>button:focus-visible{outline:2px solid}@media(prefers-reduced-motion:reduce){*{animation:none}}</style></head>
-<body><main><p>Illustrative synthetic sample data.</p><button type="button" id="run">Run</button></main>
+<style>${IDENTITY} button:focus-visible{outline:2px solid}@media(prefers-reduced-motion:reduce){*{animation:none}}</style></head>
+<body data-subvertical="medtech"><main><p>Illustrative synthetic sample data.</p><button type="button" id="run">Run</button></main>
 <script>document.querySelector('#run').addEventListener('click', () => {});</script></body></html>`;
 
-assert.deepEqual(validateDemoSource(valid), []);
+assert.deepEqual(validateDemoSource(valid, 'demos/medtech/x.html'), []);
 
 const invalid = valid
   .replace('Illustrative synthetic sample data.', 'Production customer record')

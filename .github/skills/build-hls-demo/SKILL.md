@@ -17,7 +17,7 @@ Create one credible operational demo, not a generic dashboard and not a producti
 5. Read [trust and safety](./references/hls-trust-and-safety.md). For AI, clinical, payment, coverage, safety, or compliance workflows, make review and escalation part of the interaction rather than footer copy.
 6. Read [interaction design](./references/interaction-design.md), choose one decisive interaction, and model the happy path plus one credible exception.
 7. Consult [the technology radar](./references/technology-radar.md) only after the experience is defined. Native HTML/CSS/JS is the default, not a limitation.
-8. Create `demos/<subvertical-id>/<use-case-id>.html`. Keep fixture data, CSS, and JavaScript in the file; no live requests or secrets.
+8. Create `demos/<subvertical-id>/<use-case-id>.html`. Start the `<style>` element with [the demo shell](./assets/demo-shell.css) pasted verbatim, set `<body data-subvertical="<subvertical-id>">`, then add layout CSS built from the shared tokens. Keep fixture data, CSS, and JavaScript in the file; no live requests or secrets.
 9. Run `npm run check:demos` after the first meaningful edit. Repair contract failures before polishing.
 10. Execute [the quality gates](./references/quality-gates.md), including browser screenshots and interaction checks. Repeat only the failing gate after repairs.
 11. Report the artifact path, implemented flows, validation evidence, catalog-sourced claims, assumptions, and any remaining risk. When a tracking issue is in scope, post that summary as an issue comment and leave the issue open for the owner to close.

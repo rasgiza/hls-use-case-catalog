@@ -20,6 +20,7 @@ This repository is a dependency-free static catalog of healthcare and life-scien
 - Never make live API calls, collect credentials, imply clinical diagnosis, automate an irreversible decision, or claim measured customer outcomes.
 - Keep consequential actions simulated and reversible. Show review, confidence, source, audit, and escalation affordances where the scenario calls for them.
 - Prefer semantic HTML, modern CSS, and vanilla JavaScript. Add a library only when it materially improves a domain capability and preserve a useful no-network fallback.
+- Every demo shares one visual identity. Paste `.github/skills/build-hls-demo/assets/demo-shell.css` into the demo's `<style>` element, set `<body data-subvertical="<folder>">`, and build layout from the shared tokens. The subvertical accent is the only colour that varies, so never hard-code a palette.
 - Treat accessibility, responsive behavior, keyboard operation, reduced motion, empty/loading/error states, and realistic interaction depth as acceptance criteria.
 
 ## Verification
@@ -32,6 +33,6 @@ npm run check:render
 npm run build
 ```
 
-`check:render` loads each demo in a headless browser and fails on horizontal overflow, elements that ignore the `hidden` attribute, and console errors. It skips when no Chromium-based browser is available.
+`check:render` loads each demo in a headless browser and fails on horizontal overflow, elements that ignore the `hidden` attribute, text below 4.5:1 contrast, and console errors. It skips when no Chromium-based browser is available.
 
 For UI work, also inspect the rendered artifact at 375, 768, 1280, and 1920 CSS pixels, exercise the primary and exception flows, and check browser console output. A source-only review is not enough, and a scripted DOM harness cannot see the CSS cascade or layout.

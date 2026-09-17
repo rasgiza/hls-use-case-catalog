@@ -41,6 +41,12 @@ demos/
 
 Each file normally contains its own HTML, CSS, JavaScript, and synthetic fixtures. See the `build-hls-demo` references for the full contract and technology decision policy.
 
+## Shared Visual Identity
+
+Every demo is one member of a family, so the palette, typography, app bar, and disclosure pill are fixed rather than per-demo choices. `skills/build-hls-demo/assets/demo-shell.css` holds that identity; paste it into the demo's `<style>` element and set `<body data-subvertical="...">` to the folder name. The subvertical binding supplies the only colour that varies.
+
+`npm run check:demos` rejects a demo that forks the tokens, drops an accent binding, or omits the body attribute, and `npm run check:render` rejects text below 4.5:1 contrast. Declare demo-specific aliases inside a `body` rule after the bindings: a `var()` alias declared in `:root` resolves against the root and silently ignores the subvertical accent.
+
 ## Research Basis
 
 Patterns were adapted, not copied wholesale, from sources reviewed on 2026-09-16:
@@ -61,7 +67,7 @@ Two MCP servers support this workflow when they are configured:
 | Microsoft Learn (`microsoftdocs/mcp`) | Confirming a Microsoft capability, standard, plan, or limit before a demo asserts it |
 | Playwright (`microsoft/playwright-mcp`) | Interactive browser review during an audit |
 
-Neither is required to build a demo. Without Learn, keep product references at the level the catalog already supports rather than inventing specifics. Without Playwright, `npm run check:render` still covers overflow, clipping, inert `hidden` elements, and console errors through headless Chromium.
+Neither is required to build a demo. Without Learn, keep product references at the level the catalog already supports rather than inventing specifics. Without Playwright, `npm run check:render` still covers overflow, clipping, inert `hidden` elements, text contrast, and console errors through headless Chromium.
 
 ## Maintenance
 

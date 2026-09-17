@@ -7,6 +7,11 @@ applyTo: 'demos/**/*.html'
 
 - One HTML file owns its markup, styles, behavior, and synthetic fixture data.
 - The file must work from `file://`; do not use `fetch`, XHR, WebSocket, server routes, secrets, authentication, or persistence beyond optional local UI state.
+- Every demo shares one visual identity. Paste `.github/skills/build-hls-demo/assets/demo-shell.css` into the `<style>` element before any demo-specific CSS, and set `<body data-subvertical="...">` to the demo's folder. `npm run check:demos` fails if the shared tokens, the four accent bindings, or the body attribute are missing.
+- Do not fork the palette. Build layout with the shared tokens (`--ink`, `--muted`, `--line`, `--bg`, `--surface`, `--surface-2`, `--ok`, `--warn`, `--stop`, `--radius`, `--font`). The accent is owned by the subvertical binding, so never hard-code an accent colour.
+- Custom properties resolve where they are declared. An alias such as `--brand: var(--accent-strong)` placed in `:root` freezes the root value and ignores the `body[data-subvertical]` binding. Declare demo-specific aliases in a `body` rule that follows the bindings.
+- Text on an accent or status fill must use `var(--on-accent)`. Dark ink on a mid-tone brand fill fails contrast.
+- Keep every text and background pairing at 4.5:1, or 3:1 for large text. `npm run check:render` measures this in a real browser and fails the build.
 - Use a clear document title, `lang`, responsive viewport, semantic landmarks, native controls, explicit button types, visible `:focus-visible` styles, and `prefers-reduced-motion` handling.
 - Use `addEventListener`; do not use inline event attributes or `javascript:` URLs.
 - Author `display` rules outrank the user-agent `[hidden]` rule, so toggling the `hidden` attribute silently does nothing. Include `[hidden] { display: none !important; }` whenever the demo uses `hidden`.

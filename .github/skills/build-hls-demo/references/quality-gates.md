@@ -10,9 +10,9 @@ npm run check:render
 npm run build
 ```
 
-All three must pass. `check:render` loads each demo in a headless browser and fails on horizontal overflow, elements that still render despite the `hidden` attribute, and console errors. It skips when no Chromium-based browser is installed, so a manual browser pass is still required in that case.
+All three must pass. `check:demos` fails when a demo forks the shared palette: the tokens from [the demo shell](../assets/demo-shell.css), the four `body[data-subvertical]` accent bindings, and a `data-subvertical` attribute matching the folder are all required. `check:render` loads each demo in a headless browser and fails on horizontal overflow, elements that still render despite the `hidden` attribute, text below 4.5:1 contrast (3:1 for large text), and console errors. It skips when no Chromium-based browser is installed, so a manual browser pass is still required in that case.
 
-A scripted DOM harness can verify logic, but it cannot see the CSS cascade or layout. Defects such as an author `display` rule defeating `[hidden]`, or a table overflowing at 375 px, only appear in a real render.
+A scripted DOM harness can verify logic, but it cannot see the CSS cascade or layout. Defects such as an author `display` rule defeating `[hidden]`, a table overflowing at 375 px, or dark ink left on a mid-tone accent fill, only appear in a real render.
 
 ## Behavior
 
@@ -25,6 +25,10 @@ A scripted DOM harness can verify logic, but it cannot see the CSS cascade or la
 ## Responsive Visual Review
 
 Capture full-page screenshots at 375x812, 768x1024, 1280x800, and 1920x1080. At each viewport verify no page-level horizontal scroll, clipping, overlap, detached labels, unreadable charts, or controls below a practical touch size. The primary object and action must remain obvious.
+
+## Visual Identity
+
+The demo must look like a sibling of the demos already in `demos/`, not a separate product. Compare a screenshot against one existing demo and confirm the same app bar treatment (dark `--ink` bar with a 3 px accent rule), the same outlined disclosure pill, the same card, border, and radius language, and the same typography. The subvertical accent is the only colour that should differ.
 
 ## Accessibility
 

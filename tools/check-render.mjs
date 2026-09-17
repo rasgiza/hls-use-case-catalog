@@ -37,6 +37,77 @@ const MEASURE = `(function () {
         ' (' + el.scrollWidth + 'px of content in ' + el.clientWidth + 'px)');
     }
   });
+
+  // Text contrast. Run once, at the desktop width, so findings are not repeated
+  // for every breakpoint. A shared palette is only an improvement if it stays
+  // readable, and unreadable text is invisible to the layout probes above.
+  if (window.innerWidth === 1280) {
+    var parseRgb = function (value) {
+      var match = String(value).match(/rgba?\\(([^)]+)\\)/);
+      if (!match) return null;
+      var parts = match[1].split(',').map(parseFloat);
+      return { r: parts[0], g: parts[1], b: parts[2], a: parts.length > 3 ? parts[3] : 1 };
+    };
+    var luminance = function (c) {
+      var channels = [c.r, c.g, c.b].map(function (v) {
+        v = v / 255;
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+    };
+    var contrast = function (a, b) {
+      var hi = Math.max(luminance(a), luminance(b));
+      var lo = Math.min(luminance(a), luminance(b));
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    // Gradients and images cannot be reduced to one colour, so those subtrees
+    // are reported as unknown rather than guessed at.
+    var backdrop = function (el) {
+      var node = el;
+      while (node && node.nodeType === 1) {
+        var style = getComputedStyle(node);
+        if (style.backgroundImage && style.backgroundImage !== 'none') return null;
+        var colour = parseRgb(style.backgroundColor);
+        if (colour && colour.a >= 0.95) return colour;
+        node = node.parentElement;
+      }
+      return { r: 255, g: 255, b: 255, a: 1 };
+    };
+
+    var seen = {};
+    Array.prototype.forEach.call(document.querySelectorAll('body *'), function (el) {
+      var hasOwnText = false;
+      for (var i = 0; i < el.childNodes.length; i++) {
+        var node = el.childNodes[i];
+        if (node.nodeType === 3 && node.nodeValue.trim().length > 1) hasOwnText = true;
+      }
+      if (!hasOwnText || !el.getClientRects().length) return;
+
+      var style = getComputedStyle(el);
+      if (style.visibility === 'hidden' || parseFloat(style.opacity) < 0.6) return;
+
+      var fg = parseRgb(style.color);
+      var bg = backdrop(el);
+      if (!fg || !bg || fg.a < 0.6) return;
+
+      var size = parseFloat(style.fontSize);
+      var weight = parseInt(style.fontWeight, 10) || 400;
+      var large = size >= 24 || (size >= 18.66 && weight >= 700);
+      var required = large ? 3 : 4.5;
+      var ratio = contrast(fg, bg);
+      if (ratio >= required) return;
+
+      var label = el.tagName.toLowerCase() +
+        (el.id ? '#' + el.id : el.className ? '.' + String(el.className).trim().split(/\\s+/)[0] : '');
+      var key = label + '|' + style.color + '|' + ratio.toFixed(2);
+      if (seen[key]) return;
+      seen[key] = true;
+      findings.push('low text contrast ' + ratio.toFixed(2) + ':1 (needs ' + required + ':1) on ' + label +
+        ' — ' + style.color + ' on rgb(' + Math.round(bg.r) + ', ' + Math.round(bg.g) + ', ' + Math.round(bg.b) + ')' +
+        ' — "' + el.textContent.trim().slice(0, 40) + '"');
+    });
+  }
+
   return JSON.stringify(findings);
 })()`;
 
@@ -197,23 +268,28 @@ if (process.argv.includes('--self-test')) {
   const broken = join(dir, 'broken.html');
   writeFileSync(broken, `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width"><title>broken</title>
-<style>.banner{display:flex}.clip{width:120px;overflow:hidden;white-space:nowrap}</style></head>
+<style>.banner{display:flex}.clip{width:120px;overflow:hidden;white-space:nowrap}
+.faint{background:#f3f2f1;color:#c9c7c5}</style></head>
 <body><main><p class="banner" id="ghost" hidden>still here</p>
 <div id="clipped" class="clip">this label is far too long to fit inside its clipped box</div>
+<p class="faint">barely readable grey on grey</p>
 <div id="wide" style="width:1200px">overflowing</div>
 <script>console.error('boom');</script></main></body></html>`);
 
-  const [first] = await probeAll(browser, [{ label: 'fixture', url: pathToFileURL(broken).href }]);
+  // probeAll returns one result per width, and the contrast pass deliberately
+  // runs only at the desktop width, so assert against every width's findings.
+  const probed = await probeAll(browser, [{ label: 'fixture', url: pathToFileURL(broken).href }]);
   rmSync(dir, { recursive: true, force: true });
-  first.findings.forEach((finding) => console.log(`- ${finding}`));
+  const found = probed.flatMap((result) => result.findings);
+  found.forEach((finding) => console.log(`- ${finding}`));
 
-  const missed = ['horizontal overflow', 'hidden attribute', 'console error', 'clipped by an overflow']
-    .filter((needle) => !first.findings.some((finding) => finding.includes(needle)));
+  const missed = ['horizontal overflow', 'hidden attribute', 'console error', 'clipped by an overflow', 'low text contrast']
+    .filter((needle) => !found.some((finding) => finding.includes(needle)));
   if (missed.length) {
     console.error(`Render self-test failed: probe missed ${missed.join(', ')}.`);
     process.exit(1);
   }
-  console.log('Render self-test passed: probe detects overflow, clipping, inert hidden elements, and console errors.');
+  console.log('Render self-test passed: probe detects overflow, clipping, inert hidden elements, low contrast, and console errors.');
   process.exit(0);
 }
 

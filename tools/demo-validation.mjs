@@ -1,5 +1,25 @@
 import { readFileSync } from 'node:fs';
-import { basename } from 'node:path';
+import { basename, dirname } from 'node:path';
+
+// Shared visual identity, mirroring assets/styles.css. See
+// .github/skills/build-hls-demo/assets/demo-shell.css for the full block.
+const IDENTITY_TOKENS = {
+  '--ink': '#201f1e',
+  '--muted': '#605e5c',
+  '--line': '#e1dfdd',
+  '--line-soft': '#edebe9',
+  '--bg': '#faf9f8',
+  '--surface': '#ffffff',
+  '--surface-2': '#f3f2f1',
+  '--radius': '8px',
+};
+
+const SUBVERTICAL_ACCENTS = {
+  'health-providers': '#038387',
+  'health-payers': '#0b6a0b',
+  'pharma-life-sciences': '#8764b8',
+  medtech: '#ca5010',
+};
 
 const REQUIRED_PATTERNS = [
   ['HTML5 doctype', /<!doctype html>/i],
@@ -20,6 +40,23 @@ const FORBIDDEN_PATTERNS = [
 
 export function validateDemoSource(source, fileName = 'demo.html') {
   const errors = [];
+
+  // Every demo carries the catalog's identity so the family looks like one product.
+  for (const [token, value] of Object.entries(IDENTITY_TOKENS)) {
+    const declared = new RegExp(`${token}\\s*:\\s*${value}\\s*;`, 'i').test(source);
+    if (!declared) errors.push(`does not declare the shared token ${token}: ${value}`);
+  }
+
+  for (const [id, accent] of Object.entries(SUBVERTICAL_ACCENTS)) {
+    const bound = new RegExp(`body\\[data-subvertical="${id}"\\][^{]*\\{[^}]*--accent\\s*:\\s*${accent}`, 'i').test(source);
+    if (!bound) errors.push(`missing the ${id} accent binding (${accent})`);
+  }
+
+  const folder = dirname(fileName).split(/[\\/]/).pop();
+  if (SUBVERTICAL_ACCENTS[folder]) {
+    const applied = new RegExp(`<body[^>]*data-subvertical="${folder}"`, 'i').test(source);
+    if (!applied) errors.push(`body is missing data-subvertical="${folder}" for its folder`);
+  }
 
   for (const [label, pattern] of REQUIRED_PATTERNS) {
     if (!pattern.test(source)) errors.push(`missing ${label}`);
