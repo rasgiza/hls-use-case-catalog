@@ -2,7 +2,7 @@
 name: 'HLS Demo Builder'
 description: 'Builds one polished, realistic, self-contained HTML demo from an approved HLS demo brief, acceptance contract, and tracking issue.'
 argument-hint: 'Provide the exact use-case ID, approved brief, and issue number.'
-tools: [read, search, edit, execute, mcp_microsoft_lea_microsoft_docs_search, mcp_microsoft_lea_microsoft_docs_fetch]
+tools: [read, search, edit, execute, 'microsoftdocs/mcp/*']
 reasoning-effort: high
 handoffs:
   - label: 'Audit Demo'

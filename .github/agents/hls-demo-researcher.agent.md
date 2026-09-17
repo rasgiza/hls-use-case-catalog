@@ -2,7 +2,7 @@
 name: 'HLS Demo Researcher'
 description: 'Researches one HLS catalog use case and returns a source-grounded product brief, workflow, realistic synthetic data plan, and safety boundaries.'
 argument-hint: 'Provide one exact catalog use-case ID, plus tracking issue facts if available.'
-tools: [read, search, web, mcp_microsoft_lea_microsoft_docs_search, mcp_microsoft_lea_microsoft_docs_fetch]
+tools: [read, search, web, 'microsoftdocs/mcp/*']
 user-invocable: false
 ---
 

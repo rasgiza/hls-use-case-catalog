@@ -2,7 +2,7 @@
 name: 'HLS Demo Studio'
 description: 'Orchestrates research, design, implementation, and verification of realistic self-contained HTML demos for HLS catalog use cases, driven by their GitHub tracking issues.'
 argument-hint: 'Issue number (#123), or a catalog use-case title, ID, or hash route.'
-tools: [read, search, edit, execute, agent, web, todo]
+tools: [read, search, edit, execute, agent, web, todo, 'microsoftdocs/mcp/*']
 agents: [hls-demo-researcher, hls-demo-builder, hls-demo-qa]
 reasoning-effort: high
 handoffs:

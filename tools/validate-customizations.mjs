@@ -42,6 +42,15 @@ for (const filePath of filesUnder(githubRoot)) {
       if (path.endsWith('.instructions.md') && !metadata.applyTo) {
         errors.push(`${path}: missing applyTo`);
       }
+      // Runtime tool ids like `mcp_server_toolname` are silently ignored in frontmatter.
+      if (metadata.tools) {
+        for (const entry of metadata.tools.replace(/[[\]'"]/g, '').split(',')) {
+          const name = entry.trim();
+          if (name.startsWith('mcp_')) {
+            errors.push(`${path}: tools entry '${name}' is a runtime tool id; use the '<server name>/*' form instead`);
+          }
+        }
+      }
     }
   }
 
