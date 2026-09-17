@@ -1,0 +1,22 @@
+---
+description: 'Use when planning, creating, editing, or reviewing standalone HLS catalog mock demos and demo HTML artifacts.'
+applyTo: 'demos/**/*.html'
+---
+
+# Self-Contained Demo Contract
+
+- One HTML file owns its markup, styles, behavior, and synthetic fixture data.
+- The file must work from `file://`; do not use `fetch`, XHR, WebSocket, server routes, secrets, authentication, or persistence beyond optional local UI state.
+- Use a clear document title, `lang`, responsive viewport, semantic landmarks, native controls, explicit button types, visible `:focus-visible` styles, and `prefers-reduced-motion` handling.
+- Use `addEventListener`; do not use inline event attributes or `javascript:` URLs.
+- Put the workflow's primary object and next action in the first viewport. Operational tools should be dense, calm, and optimized for scanning.
+- Cover the happy path plus one credible exception, low-confidence, empty, or error state. All controls shown as actionable must work.
+- Give async simulations deterministic timing, an in-progress state, and a clear completion announcement. Avoid fake spinners that never resolve.
+- Use a persistent label such as "Illustrative demo - synthetic data." Do not use actual patient, member, trial participant, customer, provider, or employee data.
+- Use fictional organizations and unmistakably synthetic identifiers. Do not recreate a real customer's UI or logo.
+- Preserve human review for clinical, coverage, payment, safety, compliance, and other consequential decisions.
+- Do not present generated text as medical advice or authoritative policy. Show grounding, source, confidence, effective date, and escalation where relevant.
+- Derive hard figures only from the selected catalog record; label invented operational values as sample data, not outcomes.
+- Avoid generic SaaS card grids, oversized marketing headers, decorative gradients, excessive rounding, all-caps labels, and motion without meaning.
+- Keep text readable and contained at all target widths. Avoid horizontal page scrolling and overlapping controls.
+- Run `npm run check:demos` and browser-test the primary path at 375, 768, 1280, and 1920 pixels.

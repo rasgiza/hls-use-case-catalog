@@ -1,0 +1,23 @@
+{
+  "skill_name": "build-hls-demo",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Build the catalog demo for digital-front-door-for-self-service-scheduling-and-check-in as one HTML file.",
+      "expected_output": "A catalog-grounded scheduling workflow with synthetic data, a happy path, an exception path, and completed validation.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Mock the payer prior-authorization use case. Make it polished and realistic enough for a seller to present.",
+      "expected_output": "The agent first resolves the exact use-case ID or asks for disambiguation, then preserves human review and source evidence.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Redesign the main catalog landing page and its filters.",
+      "expected_output": "The skill does not trigger because the request concerns the catalog shell, not a standalone use-case demo.",
+      "files": []
+    }
+  ]
+}

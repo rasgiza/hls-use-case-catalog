@@ -17,6 +17,7 @@ const entries = [
   'medtech.html',
   'assets',
   'data',
+  'demos',
   'staticwebapp.config.json',
 ];
 

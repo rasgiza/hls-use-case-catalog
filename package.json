@@ -4,6 +4,9 @@
   "private": true,
   "description": "FY27 HLS Sales Play Catalog — static site (no build step).",
   "scripts": {
-    "build": "node tools/build-static.mjs"
+    "build": "node tools/build-static.mjs",
+    "check:customizations": "node tools/validate-customizations.mjs",
+    "check:demos": "node tools/validate-demos.mjs",
+    "test:harness": "node tools/test-demo-validation.mjs && node tools/validate-customizations.mjs && node tools/validate-demos.mjs"
   }
 }
