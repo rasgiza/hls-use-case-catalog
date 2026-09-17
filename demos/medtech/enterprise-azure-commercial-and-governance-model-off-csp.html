@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Azure commercial transition workbench - illustrative demo</title>
+  <style>
+    :root {
+      --ink: #17221e;
+      --muted: #65736b;
+      --quiet: #8a968f;
+      --canvas: #eef1ee;
+      --surface: #fff;
+      --surface-2: #f7f9f7;
+      --line: #d8e0da;
+      --line-strong: #b8c8bc;
+      --accent: #176b4f;
+      --accent-deep: #0f4f3a;
+      --accent-soft: #e4f2eb;
+      --blue: #1d5c83;
+      --blue-soft: #e6f1f7;
+      --amber: #845d16;
+      --amber-soft: #fff4d9;
+      --red: #9b3e37;
+      --red-soft: #fbeceb;
+      --shadow: 0 8px 24px rgba(28, 47, 37, .08);
+      --radius: 7px;
+      --mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { min-width: 280px; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font: 15px/1.48 system-ui, -apple-system, "Segoe UI", sans-serif;
+      -webkit-text-size-adjust: 100%;
+    }
+    [hidden] { display: none !important; }
+    :where(button, input, textarea, a, summary):focus-visible {
+      outline: 3px solid #2b76b1;
+      outline-offset: 2px;
+    }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+    a { color: var(--blue); }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px 20px;
+      min-height: 62px;
+      padding: 10px clamp(16px, 3vw, 34px);
+      background: #193329;
+      color: #f5faf6;
+      border-bottom: 3px solid #6bb493;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border: 1px solid #91c8aa;
+      color: #ccebd8;
+      font-weight: 750;
+      border-radius: 5px;
+    }
+    .brand-name { font-weight: 700; letter-spacing: .01em; }
+    .brand-sub { display: block; color: #b8cfc0; font-size: 12px; }
+    .disclosure {
+      flex: none;
+      margin: 0;
+      padding: 5px 10px;
+      border: 1px solid #6b9b7e;
+      border-radius: 999px;
+      background: #244938;
+      color: #d8f1df;
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .operator { margin: 0; color: #c1d5c7; font-size: 13px; }
+    .operator strong { color: #fff; font-weight: 650; }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(236px, 286px) minmax(0, 1fr);
+      gap: 1px;
+      min-height: calc(100vh - 62px);
+      background: var(--line);
+    }
+    .rail, .content { min-width: 0; }
+    .rail { background: #f7f9f7; }
+    .content { background: var(--canvas); }
+    .section-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 17px 10px;
+    }
+    .section-heading h2 {
+      margin: 0;
+      color: #3d4e44;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .section-heading span { color: var(--muted); font-size: 12px; }
+    .queue {
+      display: grid;
+      gap: 9px;
+      margin: 0;
+      padding: 0 12px 18px;
+      list-style: none;
+    }
+    .queue-item {
+      width: 100%;
+      display: grid;
+      gap: 6px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--ink);
+      text-align: left;
+      box-shadow: 0 1px 2px rgba(28, 47, 37, .03);
+    }
+    .queue-item:hover { border-color: #92aa99; }
+    .queue-item[aria-current="true"] {
+      border-color: var(--accent);
+      border-left-color: var(--accent);
+      background: #f1f8f3;
+    }
+    .queue-top, .inline-meta, .card-head, .actions, .source-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .queue-top { justify-content: space-between; }
+    .packet-id, .mono { font-family: var(--mono); }
+    .packet-id { color: var(--muted); font-size: 11.5px; }
+    .queue-title { font-size: 14px; font-weight: 650; line-height: 1.35; }
+    .queue-meta { color: var(--muted); font-size: 12.5px; }
+    .state, .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 23px;
+      padding: 2px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 11.5px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .state-review { border-color: #b6d0c0; background: var(--accent-soft); color: var(--accent-deep); }
+    .state-attention { border-color: #e1c98d; background: var(--amber-soft); color: var(--amber); }
+    .state-done { border-color: #b6d0c0; background: var(--accent-soft); color: var(--accent-deep); }
+    .state-returned { border-color: #e2b8b4; background: var(--red-soft); color: var(--red); }
+    .rail-note {
+      margin: 0 17px;
+      padding: 12px 0 20px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+    .rail-note strong { color: var(--ink); }
+
+    .content-inner {
+      width: min(1120px, 100%);
+      display: grid;
+      gap: 14px;
+      padding: 20px clamp(15px, 3vw, 34px) 38px;
+    }
+    .context {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .context strong { color: var(--ink); }
+    .crumb { color: var(--muted); }
+    .packet-header {
+      display: grid;
+      gap: 11px;
+      padding-bottom: 3px;
+    }
+    .packet-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 10px 14px;
+    }
+    .packet-title h1 {
+      max-width: 780px;
+      margin: 0;
+      font-size: clamp(22px, 3vw, 30px);
+      line-height: 1.18;
+      letter-spacing: -.02em;
+    }
+    .packet-title .packet-id { font-size: 13px; }
+    .lede { max-width: 820px; margin: 0; color: #4d5c53; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag { border-radius: 4px; background: var(--surface); font-weight: 600; }
+
+    .card {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .card-head {
+      justify-content: space-between;
+      padding: 12px 15px;
+      border-bottom: 1px solid var(--line);
+    }
+    .card-head h2, .card-head h3 { margin: 0; font-size: 15px; }
+    .card-head small { color: var(--muted); font-size: 12.5px; }
+    .card-body { padding: 15px; }
+    .posture-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1px;
+      background: var(--line);
+    }
+    .posture {
+      min-width: 0;
+      padding: 14px 15px;
+      background: var(--surface);
+    }
+    .eyebrow {
+      margin: 0 0 5px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .posture h3 { margin: 0 0 8px; font-size: 16px; }
+    .posture p { margin: 0; color: #4d5c53; font-size: 13.5px; }
+    .fact-list {
+      display: grid;
+      gap: 8px;
+      margin: 13px 0 0;
+    }
+    .fact-list div { display: grid; grid-template-columns: minmax(96px, .8fr) minmax(0, 1.2fr); gap: 8px; }
+    .fact-list dt { color: var(--muted); font-size: 12.5px; }
+    .fact-list dd { margin: 0; font-size: 13px; font-weight: 600; }
+    .sample-note {
+      display: inline-block;
+      margin-top: 11px;
+      color: var(--quiet);
+      font-size: 11.5px;
+      font-style: italic;
+    }
+    .checks { display: grid; gap: 0; }
+    .check-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: start;
+      padding: 12px 0;
+      border-top: 1px solid var(--line);
+    }
+    .check-row:first-child { border-top: 0; padding-top: 0; }
+    .check-name { display: block; font-weight: 650; }
+    .check-detail { display: block; margin-top: 3px; color: var(--muted); font-size: 12.5px; }
+    .check-source { display: block; margin-top: 4px; color: var(--blue); font-size: 11.5px; }
+    .check-status { justify-self: end; }
+    .status-ready { color: var(--accent-deep); border-color: #b6d0c0; background: var(--accent-soft); }
+    .status-review { color: var(--amber); border-color: #e1c98d; background: var(--amber-soft); }
+    .status-confirmed { color: var(--blue); border-color: #b4d0df; background: var(--blue-soft); }
+
+    .decision-card { border-color: #9fc3ad; }
+    .decision-card .card-head { background: #f0f8f2; }
+    .decision-body { display: grid; gap: 13px; }
+    .decision-intro { margin: 0; color: #42554a; }
+    .review-panel {
+      display: grid;
+      gap: 13px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-2);
+    }
+    .review-panel h3 { margin: 0; font-size: 14px; }
+    .review-panel p { margin: 0; color: var(--muted); font-size: 13px; }
+    .evidence {
+      margin: 0;
+      padding: 0 0 0 20px;
+      color: #46574c;
+      font-size: 13px;
+    }
+    .evidence li + li { margin-top: 4px; }
+    .choice-list { display: grid; gap: 7px; }
+    .choice {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--surface);
+      font-size: 13px;
+    }
+    .choice input { margin-top: 3px; accent-color: var(--accent); }
+    .attest {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      padding: 10px;
+      border: 1px solid #b8c8bc;
+      border-radius: 5px;
+      background: #edf7f0;
+      color: #355044;
+      font-size: 13px;
+    }
+    .attest input { margin-top: 4px; accent-color: var(--accent); }
+    .actions { align-items: stretch; }
+    .btn {
+      min-height: 40px;
+      padding: 8px 13px;
+      border: 1px solid var(--line-strong);
+      border-radius: 5px;
+      background: var(--surface);
+      color: var(--ink);
+      font-weight: 650;
+    }
+    .btn:hover:not(:disabled) { border-color: #789483; background: #f8fbf9; }
+    .btn-primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { border-color: var(--accent-deep); background: var(--accent-deep); }
+    .btn-danger { border-color: #d6a09a; color: var(--red); }
+    .btn-danger:hover:not(:disabled) { background: var(--red-soft); }
+    .btn:disabled { cursor: not-allowed; opacity: .5; }
+    .help-text { color: var(--muted); font-size: 12px; }
+    .notice {
+      display: grid;
+      gap: 3px;
+      padding: 12px 13px;
+      border: 1px solid;
+      border-radius: var(--radius);
+      font-size: 13.5px;
+    }
+    .notice strong { font-size: 14px; }
+    .notice p { margin: 0; }
+    .notice-success { border-color: #a7cbb4; background: var(--accent-soft); color: #24553f; }
+    .notice-exception { border-color: #e0aaa4; background: var(--red-soft); color: #793a34; }
+    .notice-info { border-color: #b4d0df; background: var(--blue-soft); color: #285570; }
+    .audit {
+      display: grid;
+      gap: 8px;
+      padding: 12px 15px 15px;
+      border-top: 1px solid var(--line);
+    }
+    .audit-entry {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 10px;
+      color: #4a5a50;
+      font-size: 12.5px;
+    }
+    .audit-entry time { color: var(--muted); font-family: var(--mono); font-size: 11.5px; }
+    .audit-entry strong { color: var(--ink); }
+    .sources {
+      display: grid;
+      gap: 7px;
+      padding: 13px 15px;
+      border-top: 1px solid var(--line);
+      background: #fafcfb;
+    }
+    .source-row { align-items: baseline; }
+    .source-label { min-width: 85px; color: var(--muted); font-size: 12px; }
+    .source-row a { font-size: 12.5px; }
+    details { border-top: 1px solid var(--line); }
+    details summary {
+      padding: 11px 15px;
+      color: var(--blue);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .detail-body { padding: 0 15px 14px; color: var(--muted); font-size: 12.5px; }
+    .footer-note { margin: 0; color: var(--muted); font-size: 12px; }
+
+    @media (max-width: 900px) {
+      .topbar { align-items: flex-start; }
+      .operator { width: 100%; order: 4; }
+      .workspace { display: block; }
+      .rail { border-bottom: 1px solid var(--line); }
+      .queue { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: auto; }
+      .rail-note { display: none; }
+      .content-inner { padding-top: 15px; }
+      .posture-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 500px) {
+      .topbar { gap: 8px 12px; padding-inline: 13px; }
+      .brand { margin-right: 0; }
+      .disclosure { order: 3; width: 100%; text-align: center; }
+      .queue { grid-template-columns: 1fr; }
+      .content-inner { padding-inline: 12px; }
+      .packet-title h1 { font-size: 23px; }
+      .fact-list div { grid-template-columns: 1fr; gap: 1px; }
+      .check-row { grid-template-columns: 1fr; gap: 6px; }
+      .check-status { justify-self: start; }
+      .actions .btn { width: 100%; }
+      .audit-entry { grid-template-columns: 60px minmax(0, 1fr); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">AV</span>
+      <div>
+        <span class="brand-name">Aster Vale cloud operations</span>
+        <span class="brand-sub">Commercial transition workbench</span>
+      </div>
+    </div>
+    <p class="disclosure">Illustrative demo - synthetic data</p>
+    <p class="operator">Signed in as <strong>Mara Voss</strong> · Cloud Platform Owner</p>
+  </header>
+
+  <div class="workspace">
+    <aside class="rail" aria-labelledby="queue-heading">
+      <div class="section-heading">
+        <h2 id="queue-heading">Transition work queue</h2>
+        <span id="queue-count">2 packets</span>
+      </div>
+      <ul class="queue">
+        <li>
+          <button class="queue-item" type="button" data-packet="avms" aria-current="true">
+            <span class="queue-top">
+              <span class="packet-id">AVMS-COM-047</span>
+              <span class="state state-review">Needs review</span>
+            </span>
+            <span class="queue-title">Aster Vale Medical Systems</span>
+            <span class="queue-meta">Enterprise commercial model · opened 16 Sep 2026</span>
+          </button>
+        </li>
+        <li>
+          <button class="queue-item" type="button" data-packet="lumen" aria-current="false">
+            <span class="queue-top">
+              <span class="packet-id">LUMN-GOV-019</span>
+              <span class="state state-attention">Evidence gap</span>
+            </span>
+            <span class="queue-title">Lumen Orthotics Lab</span>
+            <span class="queue-meta">Governance maturity review · opened 15 Sep 2026</span>
+          </button>
+        </li>
+      </ul>
+      <p class="rail-note"><strong>Queue owner</strong><br>Mara Voss · Platform foundation<br><br>Two synthetic packets require a commercial or governance recommendation before planning can proceed.</p>
+    </aside>
+
+    <main class="content">
+      <div class="content-inner">
+        <div class="context">
+          <span><strong>Briefing</strong> / Data, AI &amp; Platform Foundation</span>
+          <span class="crumb">CIO / VP Cloud / CFO decision packet</span>
+        </div>
+
+        <section class="packet-header" aria-labelledby="packet-title">
+          <div class="packet-title">
+            <h1 id="packet-title">Enterprise Azure commercial transition</h1>
+            <span id="packet-id" class="packet-id">AVMS-COM-047</span>
+            <span id="packet-state" class="state state-review">Needs review</span>
+          </div>
+          <p id="packet-problem" class="lede">Current Azure consumption is routed through a CSP arrangement. The team needs a structured recommendation that improves commercial flexibility, cost transparency, governance and chargeback without executing a commercial change.</p>
+          <div class="chips" aria-label="In-scope Azure workloads">
+            <span class="tag">Operations &amp; Governance</span>
+            <span class="tag">Azure Monitor</span>
+            <span class="tag">Azure Arc-enabled servers</span>
+            <span class="tag">Azure networking &amp; ExpressRoute</span>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="posture-heading">
+          <div class="card-head">
+            <h2 id="posture-heading">Commercial posture</h2>
+            <small>Evidence assembled for human review</small>
+          </div>
+          <div class="posture-grid">
+            <article class="posture">
+              <p class="eyebrow">Current arrangement</p>
+              <h3 id="current-model">CSP-based Azure consumption</h3>
+              <p id="current-description">Commercial flexibility and cost ownership are difficult to separate across the current account structure.</p>
+              <dl class="fact-list">
+                <div><dt>Cost view</dt><dd id="current-cost">Monthly export, consolidated</dd></div>
+                <div><dt>Chargeback owner</dt><dd id="current-owner">Not consistently mapped</dd></div>
+                <div><dt>Policy evidence</dt><dd id="current-policy">Partial baseline</dd></div>
+              </dl>
+              <span class="sample-note">Sample operational data · not a customer outcome</span>
+            </article>
+            <article class="posture">
+              <p class="eyebrow">Proposed planning model</p>
+              <h3 id="target-model">Enterprise Azure commercial and governance model</h3>
+              <p id="target-description">A structured commercial migration plan paired with a landing zone and policy framework for scale.</p>
+              <dl class="fact-list">
+                <div><dt>Cost view</dt><dd id="target-cost">Owner and service mapping proposed</dd></div>
+                <div><dt>Chargeback</dt><dd id="target-owner">Business-unit review required</dd></div>
+                <div><dt>Decision scope</dt><dd>Recommendation only</dd></div>
+              </dl>
+              <span class="sample-note">Plan is illustrative · no billing or policy change is executed</span>
+            </article>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="checks-heading">
+          <div class="card-head">
+            <h2 id="checks-heading">Readiness checks</h2>
+            <small id="check-summary">3 confirmed · 1 needs corroboration</small>
+          </div>
+          <div class="card-body checks">
+            <div class="check-row">
+              <div>
+                <span class="check-name">Commercial scope</span>
+                <span id="scope-detail" class="check-detail">Current CSP constraints and target commercial model are documented.</span>
+                <span id="scope-source" class="check-source">Source: procurement brief · 16 Sep 2026</span>
+              </div>
+              <span class="tag check-status status-confirmed">Confirmed</span>
+            </div>
+            <div class="check-row">
+              <div>
+                <span class="check-name">Cost transparency</span>
+                <span id="cost-detail" class="check-detail">Sample cost view can be reviewed by service and business owner.</span>
+                <span id="cost-source" class="check-source">Source: FinOps working sheet · 16 Sep 2026</span>
+              </div>
+              <span class="tag check-status status-ready">Ready for review</span>
+            </div>
+            <div class="check-row">
+              <div>
+                <span class="check-name">Chargeback mapping</span>
+                <span id="chargeback-detail" class="check-detail">A subset of subscriptions has no confirmed business-unit owner.</span>
+                <span id="chargeback-source" class="check-source">Source: sample account extract · 16 Sep 2026</span>
+              </div>
+              <span id="chargeback-status" class="tag check-status status-review">Needs corroboration</span>
+            </div>
+            <div class="check-row">
+              <div>
+                <span class="check-name">Governance foundation</span>
+                <span id="governance-detail" class="check-detail">Landing zone and policy framework are listed as planning workstreams.</span>
+                <span id="governance-source" class="check-source">Source: platform architecture brief · 16 Sep 2026</span>
+              </div>
+              <span class="tag check-status status-ready">Ready for review</span>
+            </div>
+          </div>
+          <details>
+            <summary>Show evidence handling notes</summary>
+            <div class="detail-body">
+              Facts are separated from planning assumptions. The workbench does not infer a commercial entitlement, set a policy, change a subscription, or calculate a customer saving. A human owner must validate the packet and choose whether to recommend planning or remediation.
+            </div>
+          </details>
+        </section>
+
+        <section class="card decision-card" aria-labelledby="decision-heading">
+          <div class="card-head">
+            <h2 id="decision-heading">Human review gate</h2>
+            <span id="decision-state" class="state state-review">Awaiting recommendation</span>
+          </div>
+          <div class="card-body decision-body">
+            <p class="decision-intro">Review the evidence before recording a recommendation. This step creates an auditable planning handoff only; it does not change the commercial model or apply governance.</p>
+            <div id="notice" class="notice notice-info" role="status" aria-live="polite">
+              <strong id="notice-title">Next action</strong>
+              <p id="notice-copy">Open the review gate to inspect the packet and record a recommendation.</p>
+            </div>
+            <div id="review-panel" class="review-panel" hidden>
+              <h3>Review the proposed transition</h3>
+              <p>Evidence available to you as the Cloud Platform Owner:</p>
+              <ul class="evidence">
+                <li>Confirmed commercial scope from the procurement brief.</li>
+                <li>Sample cost view with ownership gaps called out instead of hidden.</li>
+                <li>Planning workstreams for governance, monitoring, Arc-enabled servers and networking.</li>
+              </ul>
+              <fieldset class="choice-list">
+                <legend class="sr-only">Recommendation rationale</legend>
+                <label class="choice"><input type="radio" name="rationale" value="Evidence aligns with a staged commercial migration plan." checked> <span>Evidence aligns with a staged commercial migration plan.</span></label>
+                <label class="choice"><input type="radio" name="rationale" value="Recommend a scoped planning workshop before transition design."> <span>Recommend a scoped planning workshop before transition design.</span></label>
+              </fieldset>
+              <label class="attest"><input id="attest" type="checkbox"> <span>I reviewed the evidence and am accountable for this planning recommendation. No commercial or governance change will be executed from this screen.</span></label>
+              <div class="actions">
+                <button id="approve-btn" class="btn btn-primary" type="button" disabled>Record recommendation</button>
+                <button id="return-btn" class="btn btn-danger" type="button">Return for remediation</button>
+                <button id="cancel-btn" class="btn" type="button">Close review</button>
+              </div>
+              <span class="help-text">Your decision and selected rationale will be added to the synthetic audit trail.</span>
+            </div>
+            <div id="initial-actions" class="actions">
+              <button id="open-review-btn" class="btn btn-primary" type="button">Review proposed model</button>
+              <button id="reset-btn" class="btn" type="button">Reset packet</button>
+            </div>
+          </div>
+          <div id="audit" class="audit" aria-label="Audit trail">
+            <div class="audit-entry"><time>09:12</time><span><strong>System</strong> assembled packet from synthetic briefing inputs.</span></div>
+            <div class="audit-entry"><time>09:18</time><span><strong>FinOps Lead</strong> marked chargeback mapping for corroboration.</span></div>
+          </div>
+          <div class="sources">
+            <div class="source-row"><span class="source-label">Reference names</span><a href="https://learn.microsoft.com/azure/governance/" target="_blank" rel="noreferrer">Azure governance (Policy &amp; management)</a><a href="https://learn.microsoft.com/azure/azure-monitor/" target="_blank" rel="noreferrer">Azure Monitor</a></div>
+            <div class="source-row"><span class="source-label">Workloads</span><a href="https://learn.microsoft.com/azure/azure-arc/servers/" target="_blank" rel="noreferrer">Azure Arc-enabled servers</a><a href="https://learn.microsoft.com/azure/expressroute/" target="_blank" rel="noreferrer">Azure networking &amp; ExpressRoute</a></div>
+          </div>
+        </section>
+
+        <p class="footer-note">Catalog anchor: Enterprise Azure Commercial &amp; Governance Model (Off CSP) · Business value: cloud cost transparency and savings up, commercial flexibility improved, governance and chargeback strengthened, foundation for scaled growth.</p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var FIXTURES = {
+        avms: {
+          id: "AVMS-COM-047",
+          name: "Aster Vale Medical Systems",
+          state: "Needs review",
+          stateClass: "state-review",
+          problem: "Current Azure consumption is routed through a CSP arrangement. The team needs a structured recommendation that improves commercial flexibility, cost transparency, governance and chargeback without executing a commercial change.",
+          currentModel: "CSP-based Azure consumption",
+          currentDescription: "Commercial flexibility and cost ownership are difficult to separate across the current account structure.",
+          currentCost: "Monthly export, consolidated",
+          currentOwner: "Not consistently mapped",
+          currentPolicy: "Partial baseline",
+          targetDescription: "A structured commercial migration plan paired with a landing zone and policy framework for scale.",
+          targetCost: "Owner and service mapping proposed",
+          targetOwner: "Business-unit review required",
+          scopeDetail: "Current CSP constraints and target commercial model are documented.",
+          scopeSource: "Source: procurement brief · 16 Sep 2026",
+          costDetail: "Sample cost view can be reviewed by service and business owner.",
+          costSource: "Source: FinOps working sheet · 16 Sep 2026",
+          chargebackDetail: "A subset of subscriptions has no confirmed business-unit owner.",
+          chargebackSource: "Source: sample account extract · 16 Sep 2026",
+          governanceDetail: "Landing zone and policy framework are listed as planning workstreams.",
+          governanceSource: "Source: platform architecture brief · 16 Sep 2026",
+          checkSummary: "3 confirmed · 1 needs corroboration",
+          chargebackStatus: "Needs corroboration",
+          chargebackClass: "status-review",
+          initialNotice: "Open the review gate to inspect the packet and record a recommendation."
+        },
+        lumen: {
+          id: "LUMN-GOV-019",
+          name: "Lumen Orthotics Lab",
+          state: "Evidence gap",
+          stateClass: "state-attention",
+          problem: "A synthetic governance maturity review is ready for review, but the commercial owner and chargeback evidence are not yet confirmed.",
+          currentModel: "CSP-based Azure consumption",
+          currentDescription: "The operating model has grown across teams without a shared owner map for the current account structure.",
+          currentCost: "Working sheet, partial",
+          currentOwner: "Owner map not supplied",
+          currentPolicy: "Evidence not supplied",
+          targetDescription: "A structured commercial migration plan paired with a landing zone and policy framework for scale.",
+          targetCost: "Mapping workshop proposed",
+          targetOwner: "Procurement confirmation required",
+          scopeDetail: "The target commercial scope is described, but current CSP constraints need confirmation.",
+          scopeSource: "Source: synthetic discovery notes · 15 Sep 2026",
+          costDetail: "The sample working sheet cannot be reconciled to a confirmed service owner.",
+          costSource: "Source: incomplete sample account extract · 15 Sep 2026",
+          chargebackDetail: "No business-unit owner is confirmed for the reviewed subscriptions.",
+          chargebackSource: "Source: missing procurement attachment · 15 Sep 2026",
+          governanceDetail: "A governance workstream is proposed; the existing policy baseline is not evidenced.",
+          governanceSource: "Source: platform discovery notes · 15 Sep 2026",
+          checkSummary: "0 confirmed · 4 need corroboration",
+          chargebackStatus: "Evidence missing",
+          chargebackClass: "status-review",
+          initialNotice: "This packet has an evidence gap. Review it to see the escalation route before recording a recommendation."
+        }
+      };
+
+      var state = { packet: "avms", phase: "ready" };
+      var byId = function (id) { return document.getElementById(id); };
+      var reviewPanel = byId("review-panel");
+      var initialActions = byId("initial-actions");
+      var notice = byId("notice");
+      var audit = byId("audit");
+      var attest = byId("attest");
+      var approve = byId("approve-btn");
+
+      function setText(id, value) { byId(id).textContent = value; }
+      function activeFixture() { return FIXTURES[state.packet]; }
+
+      function setNotice(kind, title, copy) {
+        notice.className = "notice notice-" + kind;
+        setText("notice-title", title);
+        setText("notice-copy", copy);
+      }
+
+      function setQueueSelection() {
+        document.querySelectorAll("[data-packet]").forEach(function (item) {
+          item.setAttribute("aria-current", item.dataset.packet === state.packet ? "true" : "false");
+        });
+      }
+
+      function renderPacket() {
+        var packet = activeFixture();
+        setText("packet-id", packet.id);
+        setText("packet-state", packet.state);
+        byId("packet-state").className = "state " + packet.stateClass;
+        setText("packet-problem", packet.problem);
+        setText("current-model", packet.currentModel);
+        setText("current-description", packet.currentDescription);
+        setText("current-cost", packet.currentCost);
+        setText("current-owner", packet.currentOwner);
+        setText("current-policy", packet.currentPolicy);
+        setText("target-description", packet.targetDescription);
+        setText("target-cost", packet.targetCost);
+        setText("target-owner", packet.targetOwner);
+        setText("scope-detail", packet.scopeDetail);
+        setText("scope-source", packet.scopeSource);
+        setText("cost-detail", packet.costDetail);
+        setText("cost-source", packet.costSource);
+        setText("chargeback-detail", packet.chargebackDetail);
+        setText("chargeback-source", packet.chargebackSource);
+        setText("governance-detail", packet.governanceDetail);
+        setText("governance-source", packet.governanceSource);
+        setText("check-summary", packet.checkSummary);
+        setText("chargeback-status", packet.chargebackStatus);
+        byId("chargeback-status").className = "tag check-status " + packet.chargebackClass;
+        setQueueSelection();
+        resetReview(false);
+      }
+
+      function addAudit(actor, message) {
+        var entry = document.createElement("div");
+        entry.className = "audit-entry";
+        var time = document.createElement("time");
+        time.textContent = state.phase === "approved" ? "09:24" : "09:23";
+        var text = document.createElement("span");
+        var strong = document.createElement("strong");
+        strong.textContent = actor;
+        text.appendChild(strong);
+        text.appendChild(document.createTextNode(" " + message));
+        entry.appendChild(time);
+        entry.appendChild(text);
+        audit.appendChild(entry);
+      }
+
+      function resetReview(showMessage) {
+        state.phase = "ready";
+        reviewPanel.hidden = true;
+        initialActions.hidden = false;
+        attest.checked = false;
+        approve.disabled = true;
+        byId("decision-state").className = "state state-review";
+        setText("decision-state", "Awaiting recommendation");
+        setNotice("info", "Next action", activeFixture().initialNotice);
+        if (showMessage) setText("notice-copy", "Packet reset. " + activeFixture().initialNotice);
+        audit.querySelectorAll(".decision-entry").forEach(function (entry) { entry.remove(); });
+      }
+
+      function openReview() {
+        state.phase = "reviewing";
+        reviewPanel.hidden = false;
+        initialActions.hidden = true;
+        setText("decision-state", "Review in progress");
+        byId("decision-state").className = "state state-review";
+        setNotice("info", "Review in progress", "Confirm the evidence, choose the rationale that fits, then record a planning recommendation or return the packet.");
+        reviewPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+
+      function selectedRationale() {
+        var selected = document.querySelector("input[name='rationale']:checked");
+        return selected ? selected.value : "Rationale not selected.";
+      }
+
+      function finishReview(outcome) {
+        state.phase = outcome;
+        reviewPanel.hidden = true;
+        initialActions.hidden = false;
+        byId("decision-state").className = "state " + (outcome === "approved" ? "state-done" : "state-returned");
+        setText("decision-state", outcome === "approved" ? "Recommendation recorded" : "Remediation required");
+        byId("initial-actions").querySelector("#open-review-btn").textContent = "Review again";
+        if (outcome === "approved") {
+          setNotice("success", "Planning recommendation recorded", "Mara Voss recommended a staged commercial migration plan. The planning handoff is queued; no commercial or governance change was executed.");
+          addAudit("Mara Voss", "recorded recommendation: " + selectedRationale());
+        } else {
+          setNotice("exception", "Returned for remediation", "Chargeback ownership evidence is not sufficient for a transition recommendation. Escalate to the Procurement Lead and Cloud Platform Owner, then reopen this packet.");
+          addAudit("Mara Voss", "returned packet for remediation: " + selectedRationale());
+        }
+        var latest = audit.lastElementChild;
+        if (latest) latest.classList.add("decision-entry");
+      }
+
+      document.querySelectorAll("[data-packet]").forEach(function (item) {
+        item.addEventListener("click", function () {
+          state.packet = item.dataset.packet;
+          renderPacket();
+        });
+      });
+      byId("open-review-btn").addEventListener("click", openReview);
+      byId("cancel-btn").addEventListener("click", function () { resetReview(false); });
+      byId("reset-btn").addEventListener("click", function () { resetReview(true); });
+      attest.addEventListener("change", function () { approve.disabled = !attest.checked; });
+      approve.addEventListener("click", function () { finishReview("approved"); });
+      byId("return-btn").addEventListener("click", function () { finishReview("exception"); });
+
+      renderPacket();
+    }());
+  </script>
+</body>
+</html>
