@@ -29,6 +29,18 @@ For trial items, document why native SVG/Canvas is inadequate, pin the version, 
 - Browser storage for sensitive-looking records
 - Service workers, authentication simulations that collect credentials, analytics, and live AI/API calls
 
+## Verifying product claims
+
+A demo that names a Microsoft service is making a claim about that service. Canonical product names come from `data/enrichment.js`; anything beyond a name — what a service does, which protocol or standard it supports, what a plan covers, what a limit is — should be checked against Microsoft Learn through the **Microsoft Learn MCP server**:
+
+- `microsoft_docs_search` to locate the authoritative page
+- `microsoft_docs_fetch` to read it before writing the claim
+- `microsoft_code_sample_search` when the demo mirrors a real API or configuration shape
+
+Check anything you would otherwise be recalling, including which Defender plan covers a workload, whether a service exposes a given standard, and how a capability is actually named in the product today. Product naming and packaging change often, so recall ages badly.
+
+When the server is not available, say so in the report and keep the reference at the level the catalog already supports rather than inventing specifics.
+
 ## Decision Record
 
 For each non-native dependency record: capability needed, options considered, selected version/source, offline behavior, license/provenance, and removal path.

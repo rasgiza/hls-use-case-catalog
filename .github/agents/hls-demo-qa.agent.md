@@ -2,7 +2,7 @@
 name: 'HLS Demo QA'
 description: 'Independently audits HLS demo HTML for runtime behavior, responsive layout, accessibility, synthetic-data safety, and catalog fidelity, and reports the verdict on the tracking issue.'
 argument-hint: 'Provide one demo HTML path or tracking issue number.'
-tools: [read, search, execute, 'mcp_playwright/*']
+tools: [read, search, execute, 'playwright/*', mcp_microsoft_lea_microsoft_docs_search, mcp_microsoft_lea_microsoft_docs_fetch]
 reasoning-effort: high
 ---
 

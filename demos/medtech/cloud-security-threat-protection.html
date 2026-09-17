@@ -1,0 +1,1198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helio SecOps — Incident Response Console (illustrative demo)</title>
+<style>
+  :root {
+    --bg: #0f131b;
+    --surface: #161c27;
+    --raised: #1c2331;
+    --line: #2b3444;
+    --line-soft: #232b39;
+    --text: #e8ecf4;
+    --muted: #9aa4b6;
+    --accent: #4aa3ff;
+    --accent-deep: #1d5fa8;
+    --accent-soft: #16273c;
+    --crit: #ff7b72;
+    --crit-bg: #2f1a1c;
+    --high: #ffab5e;
+    --high-bg: #302418;
+    --med: #ffd76a;
+    --med-bg: #2f2b17;
+    --ok: #62c98a;
+    --ok-bg: #16291e;
+    --radius: 6px;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+
+  /* Author display rules outrank the UA [hidden] rule, so restore it explicitly. */
+  [hidden] { display: none !important; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  :where(button, input, select, textarea):focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  /* ------------------------------------------------------------- app bar */
+  .appbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
+    padding: 10px 18px; background: #0a0e15; border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 30;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+  .brand-name { font-weight: 650; }
+  .brand-sub { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
+  .disclosure {
+    display: inline-flex; align-items: center; gap: 7px; margin: 0; flex: none;
+    padding: 5px 10px; border: 1px solid #3c5470; border-radius: 999px;
+    background: var(--accent-soft); color: #bcd9f7; font-size: 12px; font-weight: 600;
+  }
+  .who { margin: 0; font-size: 13px; color: var(--muted); text-align: right; }
+  .who b { color: var(--text); font-weight: 600; }
+
+  /* ------------------------------------------------------------- buttons */
+  .btn {
+    font: inherit; font-size: 14px; font-weight: 550; color: var(--text);
+    background: var(--raised); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 8px 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+    min-height: 38px;
+  }
+  .btn:hover:not(:disabled) { border-color: #3d4a5e; }
+  .btn:disabled { cursor: not-allowed; opacity: .5; }
+  .btn-primary { background: var(--accent-deep); border-color: #2d74c4; color: #f2f8ff; }
+  .btn-primary:hover:not(:disabled) { background: #22699b; }
+  .btn-link {
+    font: inherit; font-size: 13px; color: var(--accent); background: none;
+    border: 0; border-bottom: 1px solid #2f5f92; padding: 0 0 1px; cursor: pointer;
+  }
+  .btn-link:hover { border-bottom-color: var(--accent); }
+
+  /* -------------------------------------------------------------- layout */
+  .shell {
+    display: grid; grid-template-columns: minmax(270px, 330px) minmax(0, 1fr);
+    gap: 1px; background: var(--line); min-height: calc(100vh - 118px);
+  }
+  .pane { background: var(--bg); min-width: 0; }
+
+  .pane-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    padding: 13px 15px 9px;
+  }
+  .pane-head h2 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 650; }
+  .pane-head .count { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* -------------------------------------------------------------- queue */
+  .filters { display: flex; gap: 6px; padding: 0 15px 10px; flex-wrap: wrap; }
+  .chip {
+    font: inherit; font-size: 12.5px; font-weight: 550; padding: 5px 11px; min-height: 32px;
+    border-radius: 999px; border: 1px solid var(--line); background: var(--surface);
+    color: var(--muted); cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent-deep); border-color: #2d74c4; color: #f2f8ff; }
+
+  .consolidation {
+    margin: 0 15px 12px; padding: 9px 11px; border-radius: var(--radius);
+    background: var(--surface); border: 1px solid var(--line-soft);
+    font-size: 12.5px; color: var(--muted);
+  }
+  .consolidation b { color: var(--text); font-weight: 600; }
+
+  .queue { list-style: none; margin: 0; padding: 0 12px 16px; display: grid; gap: 8px; }
+  .queue-item {
+    width: 100%; text-align: left; font: inherit; cursor: pointer; color: var(--text);
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--line);
+    border-radius: var(--radius); padding: 10px 11px; display: grid; gap: 6px;
+  }
+  .queue-item:hover { border-color: #3d4a5e; }
+  .queue-item[aria-current="true"] { border-color: var(--accent); border-left-color: var(--accent); background: #18212f; }
+  .qi-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .qi-id { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .qi-title { font-weight: 600; font-size: 14px; line-height: 1.35; }
+  .qi-meta { font-size: 12.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 3px 10px; }
+  .queue-empty { padding: 4px 15px 16px; color: var(--muted); font-size: 13.5px; }
+
+  .sev {
+    display: inline-flex; align-items: center; gap: 5px; flex: none;
+    font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 4px;
+    border: 1px solid transparent; white-space: nowrap; letter-spacing: .2px;
+  }
+  .sev-critical { background: var(--crit-bg); color: var(--crit); border-color: #5d2f2f; }
+  .sev-high { background: var(--high-bg); color: var(--high); border-color: #5c4326; }
+  .sev-medium { background: var(--med-bg); color: var(--med); border-color: #574f24; }
+
+  .state {
+    display: inline-flex; align-items: center; gap: 5px; flex: none;
+    font-size: 11.5px; font-weight: 650; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--raised); color: var(--muted); white-space: nowrap;
+  }
+  .state-contained { background: var(--ok-bg); color: var(--ok); border-color: #2c5540; }
+  .state-escalated { background: var(--accent-soft); color: #8fc6f8; border-color: #2f5f92; }
+  .state-dismissed { background: var(--raised); color: var(--muted); }
+
+  /* --------------------------------------------------------------- case */
+  .case { padding: 16px; display: grid; gap: 14px; align-content: start; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+  .card-head {
+    display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; justify-content: space-between;
+    padding: 12px 15px; border-bottom: 1px solid var(--line-soft);
+  }
+  .card-head h2, .card-head h3 { margin: 0; font-size: 14.5px; font-weight: 650; }
+  .card-note { font-size: 12.5px; color: var(--muted); }
+  .card-body { padding: 14px 15px; }
+
+  .case-title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .case-title h2 { margin: 0; font-size: 19px; line-height: 1.3; }
+  .case-id { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 11px 16px; margin: 0; }
+  .facts dt { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+  .facts dd { margin: 0; font-size: 14px; }
+  .facts .mono { font-family: var(--mono); font-size: 13px; }
+
+  .sources { display: flex; flex-wrap: wrap; gap: 6px; }
+  .src-chip {
+    font-size: 11.5px; color: #bcd9f7; background: var(--accent-soft);
+    border: 1px solid #2f5f92; border-radius: 3px; padding: 2px 7px;
+  }
+
+  /* ------------------------------------------------------------ respond */
+  .respond { border-color: #35516f; }
+  .respond .card-head { background: #121b27; border-radius: var(--radius) var(--radius) 0 0; }
+  .actions { display: flex; flex-wrap: wrap; gap: 9px; }
+  .notice {
+    display: flex; gap: 9px; align-items: flex-start; font-size: 13.5px;
+    padding: 10px 12px; border-radius: var(--radius); border: 1px solid transparent;
+  }
+  .notice svg { flex: none; margin-top: 2px; }
+  .notice-block { background: var(--crit-bg); border-color: #5d2f2f; color: #ffb3ad; }
+  .notice-done { background: var(--ok-bg); border-color: #2c5540; color: #9fe0ba; }
+  .notice-info { background: var(--accent-soft); border-color: #2f5f92; color: #bcd9f7; }
+  .notice-note { display: block; margin-top: 3px; font-size: 12.5px; opacity: .9; }
+
+  /* ------------------------------------------------------------- triage */
+  .ai-flag {
+    display: flex; gap: 9px; align-items: flex-start; font-size: 12.5px; color: var(--muted);
+    background: var(--raised); border: 1px solid var(--line-soft); padding: 9px 11px; border-radius: var(--radius);
+  }
+  .ai-flag svg { flex: none; margin-top: 1px; }
+  .assessment { font-size: 15px; margin: 0; }
+  .confidence { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+  .bars { display: inline-flex; gap: 3px; }
+  .bar { width: 22px; height: 7px; border-radius: 2px; background: #2c3546; }
+  .bar.on-crit { background: var(--crit); }
+  .bar.on-high { background: var(--high); }
+  .bar.on-ok { background: var(--ok); }
+
+  /* ------------------------------------------------------------ signals */
+  .signals { list-style: none; margin: 0; padding: 0; display: grid; }
+  .signals li {
+    display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 12px;
+    padding: 11px 15px; border-top: 1px solid var(--line-soft); align-items: start;
+  }
+  .signals li:first-child { border-top: 0; }
+  .signals li:hover { background: #18202c; }
+  .sig-time { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .sig-name { display: block; font-weight: 550; font-size: 14px; }
+  .sig-detail { display: block; font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+  .sig-product { display: inline-block; margin-top: 5px; font-size: 11.5px; color: #bcd9f7; background: var(--accent-soft); border: 1px solid #2f5f92; border-radius: 3px; padding: 1px 6px; }
+
+  /* ------------------------------------------------------------- assets */
+  .assets { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+  .assets li { display: grid; gap: 3px; padding: 10px 11px; background: var(--raised); border: 1px solid var(--line-soft); border-radius: var(--radius); }
+  .asset-name { font-family: var(--mono); font-size: 13px; }
+  .asset-role { font-size: 12.5px; color: var(--muted); }
+  .asset-flag { font-size: 12.5px; color: var(--high); display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+
+  /* -------------------------------------------------------------- audit */
+  .audit { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; font-size: 13px; }
+  .audit li { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px; }
+  .audit time { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .audit .actor { font-weight: 600; }
+  .audit .actor.is-system { color: var(--muted); }
+  .audit .actor.is-human { color: var(--accent); }
+
+  /* ------------------------------------------------------------- dialog */
+  dialog {
+    border: 1px solid var(--line); border-radius: 8px; padding: 0;
+    background: var(--surface); color: var(--text);
+    width: min(660px, calc(100vw - 32px)); box-shadow: 0 20px 48px rgba(0, 0, 0, .55);
+  }
+  dialog::backdrop { background: rgba(5, 8, 13, .66); }
+  .dlg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 15px 17px; border-bottom: 1px solid var(--line-soft); }
+  .dlg-head h2 { margin: 0; font-size: 16px; }
+  .dlg-sub { display: block; margin-top: 3px; font-size: 12.5px; color: var(--muted); }
+  .dlg-body { padding: 15px 17px; display: grid; gap: 12px; }
+  .dlg-foot { display: flex; flex-wrap: wrap; gap: 9px; justify-content: flex-end; padding: 13px 17px; border-top: 1px solid var(--line-soft); background: var(--raised); }
+  .raw {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65; white-space: pre-wrap;
+    background: #0b1017; color: #c9d4e4; padding: 11px 12px; border-radius: var(--radius);
+    border: 1px solid var(--line-soft); overflow-x: auto;
+  }
+  .raw-label { font-size: 12px; color: var(--muted); margin: 0 0 4px; }
+  .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 9px 14px; font-size: 13px; margin: 0; }
+  .meta-grid dt { color: var(--muted); font-size: 12px; }
+  .meta-grid dd { margin: 0; }
+
+  .scope { display: grid; gap: 8px; }
+  .scope-item, .attest {
+    display: flex; gap: 10px; align-items: flex-start; font-size: 14px;
+    padding: 10px 11px; background: var(--raised); border: 1px solid var(--line-soft); border-radius: var(--radius);
+  }
+  .scope-item input, .attest input { width: 18px; height: 18px; margin: 1px 0 0; flex: none; }
+  .scope-item span small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .field { display: grid; gap: 5px; }
+  .field label { font-size: 13px; color: var(--muted); font-weight: 550; }
+  .field textarea {
+    font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid var(--line);
+    border-radius: var(--radius); resize: vertical; min-height: 66px;
+    color: var(--text); background: var(--raised);
+  }
+  .dlg-error { font-size: 13px; color: var(--crit); min-height: 18px; margin: 0; }
+
+  /* ------------------------------------------------------------- footer */
+  .footer {
+    display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center;
+    padding: 11px 18px; background: #0a0e15; border-top: 1px solid var(--line);
+    color: var(--muted); font-size: 12.5px;
+  }
+  .built { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .svc-chip { border: 1px solid #2f3b4d; border-radius: 3px; padding: 2px 7px; color: #c2cddd; }
+  .claim { margin-left: auto; max-width: 56ch; }
+  .claim b { color: var(--text); font-weight: 600; }
+
+  /* --------------------------------------------------------- responsive */
+  @media (max-width: 960px) {
+    .shell { grid-template-columns: minmax(0, 1fr); }
+    .queue {
+      grid-auto-flow: column; grid-auto-columns: minmax(230px, 74vw);
+      overflow-x: auto; padding-bottom: 14px;
+    }
+    .queue-empty { padding-bottom: 8px; }
+  }
+  @media (max-width: 700px) {
+    .who { text-align: left; }
+    .claim { margin-left: 0; }
+    .case { padding: 13px; }
+    .appbar { gap: 8px 12px; padding: 8px 14px; }
+    .brand-sub { display: none; }
+    .brand-name { font-size: 14.5px; }
+    .signals li { grid-template-columns: minmax(0, 1fr); gap: 5px; }
+    .signals li > *:last-child { justify-self: start; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<svg class="sr-only" aria-hidden="true" focusable="false">
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="M3 8.5l3.2 3.2L13 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 16 16"><path d="M8 2.5l6 11H2l6-11z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 6.6v3.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="11.7" r=".9" fill="currentColor"/></symbol>
+  <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="4.9" r=".9" fill="currentColor"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 16 16"><path d="M8 1.8l5 1.9v4c0 3.1-2.1 5.4-5 6.5-2.9-1.1-5-3.4-5-6.5v-4l5-1.9z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 16 16"><path d="M1.5 8h3l1.6-4 2.4 8 1.7-4h4.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 16 16"><rect x="3.2" y="7" width="9.6" height="7" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+</svg>
+
+<header class="appbar">
+  <div class="brand">
+    <svg width="24" height="24" viewBox="0 0 16 16" aria-hidden="true" style="color:#4aa3ff"><use href="#i-shield"/></svg>
+    <span class="brand-name">Helio SecOps &mdash; Incident Response Console
+      <span class="brand-sub">Helio Medical Systems &middot; fictional connected-device manufacturer</span>
+    </span>
+  </div>
+
+  <p class="disclosure">
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-info"/></svg>
+    Illustrative demo &middot; synthetic data
+  </p>
+
+  <p class="who"><b>R. Sandoval</b><br>Security analyst, tier 2</p>
+
+  <button type="button" class="btn" id="resetDemo">Restore demo data</button>
+</header>
+
+<main class="shell">
+
+  <!-- ===================================================== queue -->
+  <section class="pane" aria-labelledby="queueHeading">
+    <div class="pane-head">
+      <h2 id="queueHeading">Incident queue</h2>
+      <span class="count" id="queueCount"></span>
+    </div>
+
+    <div class="filters" role="group" aria-label="Filter incidents by state">
+      <button type="button" class="chip" data-filter="all" aria-pressed="true">All</button>
+      <button type="button" class="chip" data-filter="open" aria-pressed="false">Needs action</button>
+      <button type="button" class="chip" data-filter="closed" aria-pressed="false">Actioned</button>
+    </div>
+
+    <p class="consolidation" id="consolidation"></p>
+
+    <ul class="queue" id="queueList"></ul>
+    <p class="queue-empty" id="queueEmpty" hidden>No incidents match this filter.</p>
+  </section>
+
+  <!-- ===================================================== case -->
+  <section class="pane" aria-labelledby="caseHeading">
+    <div class="case">
+
+      <article class="card">
+        <div class="card-head">
+          <div class="case-title">
+            <h2 id="caseHeading">Incident</h2>
+            <span class="case-id" id="caseId"></span>
+            <span class="sev" id="caseSev"></span>
+          </div>
+          <p class="card-note" id="caseSla"></p>
+        </div>
+        <div class="card-body" style="display:grid;gap:13px">
+          <dl class="facts" id="caseFacts"></dl>
+          <div>
+            <p class="card-note" style="margin:0 0 6px">Correlated from</p>
+            <div class="sources" id="caseSources"></div>
+          </div>
+        </div>
+      </article>
+
+      <!-- decision stays high so the next action is in the first viewport -->
+      <article class="card respond" aria-labelledby="respondHeading">
+        <div class="card-head">
+          <h3 id="respondHeading">Response</h3>
+          <span class="card-note">analyst decision required</span>
+        </div>
+        <div class="card-body" style="display:grid;gap:11px">
+          <p class="notice notice-block" id="blockNotice" hidden>
+            <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-alert"/></svg>
+            <span id="blockText"></span>
+          </p>
+          <p class="notice" id="outcomeNotice" hidden>
+            <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-check"/></svg>
+            <span id="outcomeText"></span>
+          </p>
+          <div class="actions" id="responseActions"></div>
+          <p class="sr-only" id="responseStatus" role="status"></p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h3>Triage assessment</h3>
+          <span class="card-note">Microsoft Security Copilot</span>
+        </div>
+        <div class="card-body" style="display:grid;gap:11px">
+          <p class="ai-flag">
+            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-info"/></svg>
+            <span>Generated summary of the correlated signals below. It is a starting point for the analyst, not a decision, and no containment happens without the approval step above.</span>
+          </p>
+          <p class="assessment" id="assessmentText"></p>
+          <p class="confidence" id="confidenceLine"></p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h3>Correlated signals</h3>
+          <span class="card-note" id="signalCount"></span>
+        </div>
+        <ol class="signals" id="signalList"></ol>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h3>Affected assets</h3>
+          <span class="card-note">clinical impact is flagged</span>
+        </div>
+        <div class="card-body"><ul class="assets" id="assetList"></ul></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><h3>Audit trail</h3><span class="card-note">append-only</span></div>
+        <div class="card-body"><ul class="audit" id="auditList"></ul></div>
+      </article>
+
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <span class="built">
+    Built on
+    <span class="svc-chip">Microsoft Defender for Cloud</span>
+    <span class="svc-chip">Microsoft Sentinel</span>
+    <span class="svc-chip">Microsoft Security Copilot</span>
+    <span class="svc-chip">Azure network security</span>
+  </span>
+  <span class="claim">
+    FY27 HLS catalog value claim for this use case: <b>threat detection and response time down, breach and ransomware risk reduced, compliance posture strengthened, security operations consolidated.</b>
+    The catalog states no figures here, so every number on this screen is fictional operational data.
+  </span>
+</footer>
+
+<!-- ===================================================== signal dialog -->
+<dialog id="signalDialog" aria-labelledby="sigTitle">
+  <div class="dlg-head">
+    <div>
+      <h2 id="sigTitle"></h2>
+      <span class="dlg-sub" id="sigSub"></span>
+    </div>
+    <button type="button" class="btn" id="sigClose">Close</button>
+  </div>
+  <div class="dlg-body">
+    <dl class="meta-grid" id="sigMeta"></dl>
+    <div>
+      <p class="raw-label">Raw signal as recorded</p>
+      <p class="raw" id="sigRaw"></p>
+    </div>
+    <p class="ai-flag">
+      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-lock"/></svg>
+      <span>Signal content is treated as evidence, never as instructions. No patient records are shown in this console.</span>
+    </p>
+  </div>
+  <div class="dlg-foot">
+    <button type="button" class="btn btn-primary" id="sigDone">Back to incident</button>
+  </div>
+</dialog>
+
+<!-- ===================================================== decision dialog -->
+<dialog id="decisionDialog" aria-labelledby="decTitle">
+  <form method="dialog">
+    <div class="dlg-head">
+      <div>
+        <h2 id="decTitle"></h2>
+        <span class="dlg-sub" id="decSub"></span>
+      </div>
+    </div>
+    <div class="dlg-body">
+      <p id="decExplain" style="margin:0;font-size:14px"></p>
+      <div class="scope" id="decScope" hidden></div>
+      <label class="attest">
+        <input type="checkbox" id="decAttest">
+        <span id="decAttestText"></span>
+      </label>
+      <div class="field">
+        <label for="decNote">Analyst note <span style="font-weight:400;color:var(--muted)">(recorded in the audit trail)</span></label>
+        <textarea id="decNote" placeholder="Optional context for this decision"></textarea>
+      </div>
+      <p class="dlg-error" id="decError" role="alert"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" id="decCancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="decConfirm"></button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+   * Fixture data. Hosts, accounts, indicators, and signal text below are
+   * invented. No patient records appear anywhere in this console.
+   * ---------------------------------------------------------------- */
+  var INCIDENTS = [
+    {
+      id: "INC-2291",
+      title: "Ransomware staging on firmware build server",
+      severity: "critical",
+      state: "open",
+      opened: "2026-09-17 04:12",
+      sla: "Containment target 30 min · 11 min elapsed",
+      alertCount: 7,
+      sources: ["Microsoft Defender for Cloud", "Microsoft Sentinel", "Azure network security"],
+      facts: [
+        ["Entry point", "Compromised service principal", false],
+        ["Primary asset", "hms-build-07", true],
+        ["Data at risk", "Firmware signing artifacts", false],
+        ["Clinical impact", "None — asset is not in a care pathway", false]
+      ],
+      assessment: "Four behaviours line up with pre-encryption staging: credential dumping, lateral movement to the artifact store, backup agent shutdown, and outbound traffic to an indicator seen in two earlier campaigns. The build server signs device firmware, so the supply-chain exposure is the reason this is critical rather than the host itself.",
+      confidence: { level: "crit", filled: 3, label: "Strong — 4 independent behaviours across 3 products, no benign explanation found" },
+      signals: [
+        { time: "04:12:07", name: "Credential dumping tool executed", product: "Microsoft Defender for Cloud",
+          detail: "LSASS access by an unsigned binary on hms-build-07.",
+          entity: "hms-build-07 · process 7742",
+          raw: "AlertId: DFC-88214\nSeverity: High\nEntity: hms-build-07\nProcess: c:\\\\programdata\\\\svc\\\\dbg64.exe (unsigned)\nTechnique: T1003.001 OS Credential Dumping: LSASS Memory\nEvidence: handle to lsass.exe with PROCESS_VM_READ" },
+        { time: "04:14:33", name: "Lateral movement to artifact store", product: "Microsoft Sentinel",
+          detail: "Service principal authenticated to the firmware artifact store from a new host.",
+          entity: "sp-build-release",
+          raw: "RuleName: Anomalous service principal resource access\nPrincipal: sp-build-release\nSource: hms-build-07\nTarget: hms-artifacts (firmware signing store)\nBaseline: principal has never authenticated from this host\nWindow: 2026-09-17T04:14Z" },
+        { time: "04:16:02", name: "Backup agent stopped", product: "Microsoft Defender for Cloud",
+          detail: "Backup service disabled outside any change window.",
+          entity: "hms-build-07",
+          raw: "AlertId: DFC-88231\nSeverity: Medium\nAction: StopService(BackupAgent)\nChangeRecord: none matched\nTechnique: T1490 Inhibit System Recovery" },
+        { time: "04:18:49", name: "Outbound traffic to known indicator", product: "Azure network security",
+          detail: "Repeated connections to an indicator matched in threat intelligence.",
+          entity: "203.0.113.47 (documentation range)",
+          raw: "Firewall: hms-hub-fw\nAction: Allowed (rule permits egress 443)\nDestination: 203.0.113.47:443\nIntel: matched indicator, 2 prior campaigns\nConnections: 14 in 90 seconds" }
+      ],
+      assets: [
+        { name: "hms-build-07", role: "Firmware build and signing server", clinical: false },
+        { name: "hms-artifacts", role: "Firmware artifact store", clinical: false },
+        { name: "sp-build-release", role: "Service principal used by the release pipeline", clinical: false }
+      ],
+      actions: ["contain", "escalate"],
+      containScope: [
+        { id: "isolate", label: "Isolate hms-build-07 from the network", note: "Stops the build pipeline until released." },
+        { id: "block", label: "Block the outbound indicator at the firewall", note: "Applies to the hub firewall only." },
+        { id: "revoke", label: "Revoke sessions and rotate the service principal", note: "Breaks the release pipeline until credentials are reissued." }
+      ],
+      audit: [
+        { time: "04:12", who: "system", text: "7 alerts correlated into INC-2291 and raised to critical." },
+        { time: "04:19", who: "system", text: "Triage summary generated from 4 correlated signals. Draft only, no action taken." }
+      ]
+    },
+    {
+      id: "INC-2288",
+      title: "Suspicious remote session on device service gateway",
+      severity: "high",
+      state: "open",
+      opened: "2026-09-17 02:48",
+      sla: "Containment target 60 min · 34 min elapsed",
+      alertCount: 4,
+      sources: ["Microsoft Sentinel", "Microsoft Defender for Cloud"],
+      facts: [
+        ["Entry point", "Vendor support account", false],
+        ["Primary asset", "svc-gw-22", true],
+        ["Data at risk", "Device telemetry (no patient records)", false],
+        ["Clinical impact", "Gateway maintains live links to deployed devices", false]
+      ],
+      assessment: "A vendor support account signed in outside its maintenance window and enumerated the device inventory. That pattern fits reconnaissance, but the same account performs legitimate inventory pulls during scheduled work, so this is not conclusive. Standard isolation is not available here because the gateway carries remote monitoring for devices in active clinical use.",
+      confidence: { level: "high", filled: 2, label: "Moderate — behaviour is anomalous but has a plausible benign pattern" },
+      signals: [
+        { time: "02:48:11", name: "Sign-in outside maintenance window", product: "Microsoft Sentinel",
+          detail: "Vendor support account authenticated at 02:48; no change ticket matched.",
+          entity: "svc-vendor-remote",
+          raw: "RuleName: Off-window vendor access\nAccount: svc-vendor-remote\nTime: 2026-09-17T02:48Z\nMaintenanceWindow: Tue 22:00-02:00\nChangeTicket: none matched\nMFA: satisfied" },
+        { time: "02:53:40", name: "Device inventory enumeration", product: "Microsoft Defender for Cloud",
+          detail: "Full inventory query across 340 connected devices.",
+          entity: "svc-gw-22",
+          raw: "AlertId: DFC-88109\nQuery: inventory.listAll(scope=deployed)\nRecords: 340 device identifiers\nBaseline: monthly during maintenance; this is off-cycle\nPatientData: not included in this API surface" },
+        { time: "03:04:12", name: "Configuration read on two devices", product: "Microsoft Sentinel",
+          detail: "Read-only access to configuration for two infusion pumps.",
+          entity: "pump-2211, pump-2274",
+          raw: "Operation: config.read\nTargets: pump-2211, pump-2274\nMutation: none\nResult: success\nNote: read-only surface, no therapy parameters modified" }
+      ],
+      assets: [
+        { name: "svc-gw-22", role: "Device service gateway", clinical: true,
+          impact: "Carries remote monitoring for 340 devices in active clinical use" },
+        { name: "svc-vendor-remote", role: "Vendor support account", clinical: false },
+        { name: "pump-2211, pump-2274", role: "Deployed infusion pumps (configuration read only)", clinical: true,
+          impact: "In service at customer sites" }
+      ],
+      actions: ["softContain", "escalate"],
+      blocked: "Network isolation is unavailable for this incident. svc-gw-22 carries remote monitoring for 340 devices in active clinical use, so cutting it off could remove clinical visibility. Under the patient-safety policy, isolating a clinical-path asset needs joint approval from the incident commander and clinical engineering. The non-disruptive option below is available now.",
+      softScope: [
+        { id: "revokeVendor", label: "Revoke the vendor account session and force re-authentication", note: "Does not interrupt device links." },
+        { id: "stepUp", label: "Require step-up approval for further gateway access", note: "Adds an approval gate, keeps monitoring online." },
+        { id: "watch", label: "Raise monitoring on the gateway to the highest tier", note: "Increases signal volume for 24 hours." }
+      ],
+      audit: [
+        { time: "02:48", who: "system", text: "4 alerts correlated into INC-2288 and raised to high." },
+        { time: "03:06", who: "system", text: "Triage summary generated from 3 correlated signals. Draft only, no action taken." },
+        { time: "03:06", who: "system", text: "Isolation withheld: asset is on a clinical path and requires joint approval." }
+      ]
+    },
+    {
+      id: "INC-2285",
+      title: "Atypical sign-in location for a field engineer",
+      severity: "medium",
+      state: "open",
+      opened: "2026-09-16 21:30",
+      sla: "Review target 24 h · 6 h elapsed",
+      alertCount: 1,
+      sources: ["Microsoft Sentinel"],
+      facts: [
+        ["Entry point", "Field engineer account", false],
+        ["Primary asset", "Corporate identity", true],
+        ["Data at risk", "None identified", false],
+        ["Clinical impact", "None", false]
+      ],
+      assessment: "The sign-in came from a country the engineer has not used before, which is what raised the alert. Everything else lines up with approved travel: the trip is in the travel system, the device is corporate and compliant, MFA was satisfied on a registered key, and no unusual activity followed. This looks like a benign pattern that keeps generating alerts.",
+      confidence: { level: "ok", filled: 3, label: "Strong — three corroborating records explain the anomaly" },
+      signals: [
+        { time: "21:30:55", name: "Sign-in from an unfamiliar country", product: "Microsoft Sentinel",
+          detail: "First sign-in from this country for the account; MFA satisfied on a registered key.",
+          entity: "r.lindqvist@helio.invalid",
+          raw: "RuleName: Atypical travel\nAccount: r.lindqvist@helio.invalid\nDevice: corporate laptop, compliant\nMFA: hardware key, satisfied\nTravelRecord: TRV-4471 approved 2026-09-10\nSubsequentActivity: routine service portal access only" }
+      ],
+      assets: [
+        { name: "r.lindqvist@helio.invalid", role: "Field engineer account", clinical: false }
+      ],
+      actions: ["dismiss", "escalate"],
+      tuning: "Sign-ins matching an approved travel record on a compliant device account for roughly a third of this rule's volume. Dismissing with this reason feeds the tuning backlog rather than closing silently.",
+      audit: [
+        { time: "21:30", who: "system", text: "1 alert raised as INC-2285." },
+        { time: "21:31", who: "system", text: "Triage summary generated. Draft only, no action taken." }
+      ]
+    }
+  ];
+
+  var ACTIONS = {
+    contain: {
+      label: "Contain incident",
+      primary: true,
+      title: "Contain incident",
+      explain: "Containment runs only the steps you select. Each one is reversible from this console, and the full selection is written to the audit trail against your account.",
+      attest: "I reviewed the correlated signals and accept responsibility for these containment steps.",
+      confirm: "Apply containment",
+      state: "contained",
+      scopeKey: "containScope",
+      noticeClass: "notice-done",
+      text: function (incident) {
+        return "Contained by R. Sandoval. " + incident.appliedCount + " of " +
+          incident.containScope.length + " steps applied to " + incident.id + ".";
+      },
+      note: "Each step is reversible from this console. Release restores the previous state.",
+      audit: function (incident) { return "Containment applied (" + incident.appliedLabels + ")."; }
+    },
+    softContain: {
+      label: "Apply non-disruptive containment",
+      primary: true,
+      title: "Apply non-disruptive containment",
+      explain: "These steps tighten access without severing device links, so remote monitoring for deployed devices stays online. Isolation still requires joint approval.",
+      attest: "I confirm these steps do not interrupt clinical device monitoring.",
+      confirm: "Apply steps",
+      state: "contained",
+      scopeKey: "softScope",
+      noticeClass: "notice-done",
+      text: function (incident) {
+        return "Non-disruptive containment applied by R. Sandoval. " + incident.appliedCount + " of " +
+          incident.softScope.length + " steps active; device monitoring remains online.";
+      },
+      note: "Isolation remains blocked until the incident commander and clinical engineering both approve.",
+      audit: function (incident) { return "Non-disruptive containment applied (" + incident.appliedLabels + ")."; }
+    },
+    escalate: {
+      label: "Escalate to incident commander",
+      primary: false,
+      title: "Escalate to incident commander",
+      explain: "Escalation hands the incident to the on-call commander with the signals, assets, and triage summary attached. Nothing is contained by this step.",
+      attest: "I confirm this incident needs commander ownership.",
+      confirm: "Escalate",
+      state: "escalated",
+      noticeClass: "notice-info",
+      text: function (incident) {
+        return "Escalated to the on-call incident commander. " + incident.id + " stays open and uncontained.";
+      },
+      note: "For clinical-path assets the page also reaches clinical engineering for joint approval.",
+      audit: function () { return "Escalated to the on-call incident commander with evidence attached."; }
+    },
+    dismiss: {
+      label: "Dismiss as benign",
+      primary: true,
+      title: "Dismiss as benign",
+      explain: "Dismissing closes the incident and records why, so the detection can be tuned instead of generating the same alert again.",
+      attest: "I reviewed the corroborating records and judge this activity benign.",
+      confirm: "Dismiss and file tuning note",
+      state: "dismissed",
+      noticeClass: "notice-info",
+      text: function (incident) {
+        return "Dismissed as benign by R. Sandoval. " + incident.id + " is closed and a tuning note was filed.";
+      },
+      note: "Reopen from this console if the assessment changes.",
+      audit: function () { return "Dismissed as benign; tuning note filed against the detection rule."; }
+    }
+  };
+
+  var STATE_LABELS = {
+    open: { cls: "", label: "Needs action" },
+    contained: { cls: "state-contained", label: "Contained" },
+    escalated: { cls: "state-escalated", label: "Escalated" },
+    dismissed: { cls: "state-dismissed", label: "Dismissed" }
+  };
+
+  /* ------------------------------------------------------------------ */
+  var state = { incidents: [], activeId: null, filter: "all", clock: 0, pending: null };
+  var el = {};
+  ["queueList", "queueCount", "queueEmpty", "consolidation", "caseHeading", "caseId", "caseSev",
+   "caseSla", "caseFacts", "caseSources", "blockNotice", "blockText", "outcomeNotice", "outcomeText",
+   "responseActions", "responseStatus", "assessmentText", "confidenceLine", "signalCount", "signalList",
+   "assetList", "auditList", "resetDemo",
+   "signalDialog", "sigTitle", "sigSub", "sigMeta", "sigRaw", "sigClose", "sigDone",
+   "decisionDialog", "decTitle", "decSub", "decExplain", "decScope", "decAttest", "decAttestText",
+   "decNote", "decError", "decCancel", "decConfirm"].forEach(function (id) {
+    el[id] = document.getElementById(id);
+  });
+
+  function text(node, value) { node.textContent = value; }
+  function icon(name, size) {
+    return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-' + name + '"/></svg>';
+  }
+
+  function resetState() {
+    state.incidents = INCIDENTS.map(function (seed) {
+      var copy = JSON.parse(JSON.stringify(seed));
+      copy.state = "open";
+      copy.outcome = null;
+      return copy;
+    });
+    state.activeId = state.incidents[0].id;
+    state.filter = "all";
+    state.clock = 0;
+    syncFilters();
+    render();
+  }
+
+  function active() {
+    return state.incidents.filter(function (i) { return i.id === state.activeId; })[0];
+  }
+
+  /** Deterministic clock so a rehearsed walkthrough always reads the same. */
+  function nextTimestamp() {
+    state.clock += 3;
+    var base = 4 * 60 + 23 + state.clock;
+    var h = Math.floor(base / 60), m = base % 60;
+    return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+  }
+
+  /* ---------------------------------------------------------- queue */
+  function visible() {
+    return state.incidents.filter(function (incident) {
+      if (state.filter === "open") return incident.state === "open";
+      if (state.filter === "closed") return incident.state !== "open";
+      return true;
+    });
+  }
+
+  function renderQueue() {
+    var list = visible();
+    el.queueList.textContent = "";
+
+    list.forEach(function (incident) {
+      var li = document.createElement("li");
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "queue-item";
+      btn.setAttribute("aria-current", incident.id === state.activeId ? "true" : "false");
+
+      var top = document.createElement("span");
+      top.className = "qi-top";
+      var sev = document.createElement("span");
+      sev.className = "sev sev-" + incident.severity;
+      sev.textContent = incident.severity;
+      var id = document.createElement("span");
+      id.className = "qi-id";
+      id.textContent = incident.id;
+      top.appendChild(sev);
+      top.appendChild(id);
+
+      var title = document.createElement("span");
+      title.className = "qi-title";
+      title.textContent = incident.title;
+
+      var meta = document.createElement("span");
+      meta.className = "qi-meta";
+      var stateTag = document.createElement("span");
+      var meta1 = STATE_LABELS[incident.state];
+      stateTag.className = "state " + meta1.cls;
+      stateTag.textContent = meta1.label;
+      var alerts = document.createElement("span");
+      alerts.textContent = incident.alertCount + " alerts correlated";
+      meta.appendChild(stateTag);
+      meta.appendChild(alerts);
+
+      btn.appendChild(top);
+      btn.appendChild(title);
+      btn.appendChild(meta);
+      btn.addEventListener("click", function () {
+        state.activeId = incident.id;
+        render();
+      });
+
+      li.appendChild(btn);
+      el.queueList.appendChild(li);
+    });
+
+    var open = state.incidents.filter(function (i) { return i.state === "open"; }).length;
+    text(el.queueCount, open + " need action");
+    el.queueEmpty.hidden = list.length > 0;
+
+    var alerts = state.incidents.reduce(function (sum, i) { return sum + i.alertCount; }, 0);
+    el.consolidation.textContent = "";
+    var strong = document.createElement("b");
+    strong.textContent = alerts + " raw alerts";
+    el.consolidation.appendChild(strong);
+    el.consolidation.appendChild(document.createTextNode(
+      " from Defender, Sentinel, and network security were correlated into " +
+      state.incidents.length + " incidents, so the queue reflects cases rather than alert volume."));
+  }
+
+  function syncFilters() {
+    Array.prototype.forEach.call(document.querySelectorAll("[data-filter]"), function (chip) {
+      chip.setAttribute("aria-pressed", chip.dataset.filter === state.filter ? "true" : "false");
+    });
+  }
+
+  /* ------------------------------------------------------- case detail */
+  function renderHeader(incident) {
+    text(el.caseHeading, incident.title);
+    text(el.caseId, incident.id);
+    el.caseSev.className = "sev sev-" + incident.severity;
+    text(el.caseSev, incident.severity);
+    text(el.caseSla, incident.sla);
+
+    el.caseFacts.textContent = "";
+    incident.facts.forEach(function (fact) {
+      var wrap = document.createElement("div");
+      var dt = document.createElement("dt");
+      dt.textContent = fact[0];
+      var dd = document.createElement("dd");
+      dd.textContent = fact[1];
+      if (fact[2]) dd.className = "mono";
+      wrap.appendChild(dt);
+      wrap.appendChild(dd);
+      el.caseFacts.appendChild(wrap);
+    });
+
+    el.caseSources.textContent = "";
+    incident.sources.forEach(function (source) {
+      var chip = document.createElement("span");
+      chip.className = "src-chip";
+      chip.textContent = source;
+      el.caseSources.appendChild(chip);
+    });
+  }
+
+  function renderTriage(incident) {
+    text(el.assessmentText, incident.assessment);
+    el.confidenceLine.textContent = "";
+    var bars = document.createElement("span");
+    bars.className = "bars";
+    for (var i = 0; i < 3; i++) {
+      var bar = document.createElement("span");
+      bar.className = "bar" + (i < incident.confidence.filled ? " on-" + incident.confidence.level : "");
+      bars.appendChild(bar);
+    }
+    var label = document.createElement("span");
+    label.textContent = incident.confidence.label;
+    el.confidenceLine.appendChild(bars);
+    el.confidenceLine.appendChild(label);
+  }
+
+  function renderSignals(incident) {
+    el.signalList.textContent = "";
+    text(el.signalCount, incident.signals.length + " signals");
+
+    incident.signals.forEach(function (signal) {
+      var li = document.createElement("li");
+
+      var time = document.createElement("span");
+      time.className = "sig-time";
+      time.textContent = signal.time;
+
+      var body = document.createElement("span");
+      var name = document.createElement("span");
+      name.className = "sig-name";
+      name.textContent = signal.name;
+      var detail = document.createElement("span");
+      detail.className = "sig-detail";
+      detail.textContent = signal.detail;
+      var product = document.createElement("span");
+      product.className = "sig-product";
+      product.textContent = signal.product;
+      body.appendChild(name);
+      body.appendChild(detail);
+      body.appendChild(product);
+
+      var view = document.createElement("button");
+      view.type = "button";
+      view.className = "btn-link";
+      view.textContent = "View raw signal";
+      view.addEventListener("click", function () { openSignal(signal, incident); });
+
+      li.appendChild(time);
+      li.appendChild(body);
+      li.appendChild(view);
+      el.signalList.appendChild(li);
+    });
+  }
+
+  function renderAssets(incident) {
+    el.assetList.textContent = "";
+    incident.assets.forEach(function (asset) {
+      var li = document.createElement("li");
+      var name = document.createElement("span");
+      name.className = "asset-name";
+      name.textContent = asset.name;
+      var role = document.createElement("span");
+      role.className = "asset-role";
+      role.textContent = asset.role;
+      li.appendChild(name);
+      li.appendChild(role);
+
+      if (asset.clinical) {
+        var flag = document.createElement("span");
+        flag.className = "asset-flag";
+        flag.innerHTML = icon("pulse", 13);
+        var flagText = document.createElement("span");
+        flagText.textContent = asset.impact || "Clinical path — containment needs joint approval";
+        flag.appendChild(flagText);
+        li.appendChild(flag);
+      }
+      el.assetList.appendChild(li);
+    });
+  }
+
+  function renderAudit(incident) {
+    el.auditList.textContent = "";
+    incident.audit.forEach(function (entry) {
+      var li = document.createElement("li");
+      var time = document.createElement("time");
+      time.textContent = entry.time;
+      var body = document.createElement("span");
+      var actor = document.createElement("span");
+      actor.className = "actor " + (entry.who === "system" ? "is-system" : "is-human");
+      actor.textContent = entry.who === "system" ? "Platform — " : "R. Sandoval — ";
+      var what = document.createElement("span");
+      what.textContent = entry.text;
+      body.appendChild(actor);
+      body.appendChild(what);
+      li.appendChild(time);
+      li.appendChild(body);
+      el.auditList.appendChild(li);
+    });
+  }
+
+  function renderResponse(incident) {
+    el.responseActions.textContent = "";
+    el.blockNotice.hidden = true;
+    el.outcomeNotice.hidden = true;
+
+    if (incident.outcome) {
+      var done = ACTIONS[incident.outcome];
+      el.outcomeNotice.hidden = false;
+      el.outcomeNotice.className = "notice " + done.noticeClass;
+      el.outcomeText.textContent = "";
+      var main = document.createElement("span");
+      main.textContent = done.text(incident);
+      var note = document.createElement("span");
+      note.className = "notice-note";
+      note.textContent = done.note + (incident.decisionNote ? " Analyst note: " + incident.decisionNote : "");
+      el.outcomeText.appendChild(main);
+      el.outcomeText.appendChild(note);
+
+      addAction(incident.outcome === "dismissed" || incident.state === "dismissed"
+        ? "Reopen incident" : "Reverse and reopen", false, function () { reopen(incident); });
+
+      if (incident.blocked) showBlocked(incident);
+      return;
+    }
+
+    if (incident.blocked) showBlocked(incident);
+
+    incident.actions.forEach(function (key) {
+      var action = ACTIONS[key];
+      addAction(action.label, action.primary, function () { openDecision(incident, key); });
+    });
+  }
+
+  function showBlocked(incident) {
+    el.blockNotice.hidden = false;
+    text(el.blockText, incident.blocked);
+  }
+
+  function addAction(label, primary, handler) {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn" + (primary ? " btn-primary" : "");
+    btn.textContent = label;
+    btn.addEventListener("click", handler);
+    el.responseActions.appendChild(btn);
+  }
+
+  function render() {
+    var incident = active();
+    renderQueue();
+    if (!incident) return;
+    renderHeader(incident);
+    renderResponse(incident);
+    renderTriage(incident);
+    renderSignals(incident);
+    renderAssets(incident);
+    renderAudit(incident);
+  }
+
+  /* ------------------------------------------------------ signal dialog */
+  function openSignal(signal, incident) {
+    text(el.sigTitle, signal.name);
+    text(el.sigSub, incident.id + " · " + signal.product);
+
+    el.sigMeta.textContent = "";
+    [["Observed", signal.time], ["Entity", signal.entity], ["Detected by", signal.product], ["Incident", incident.id]]
+      .forEach(function (pair) {
+        var wrap = document.createElement("div");
+        var dt = document.createElement("dt");
+        dt.textContent = pair[0];
+        var dd = document.createElement("dd");
+        dd.textContent = pair[1];
+        wrap.appendChild(dt);
+        wrap.appendChild(dd);
+        el.sigMeta.appendChild(wrap);
+      });
+
+    text(el.sigRaw, signal.raw);
+    showDialog(el.signalDialog);
+  }
+
+  /* ---------------------------------------------------- decision dialog */
+  function openDecision(incident, key) {
+    var action = ACTIONS[key];
+    state.pending = { id: incident.id, key: key };
+
+    text(el.decTitle, action.title);
+    text(el.decSub, incident.id + " · " + incident.title);
+    text(el.decExplain, action.explain);
+    text(el.decAttestText, action.attest);
+    text(el.decConfirm, action.confirm);
+    el.decAttest.checked = false;
+    el.decNote.value = "";
+    text(el.decError, "");
+
+    el.decScope.textContent = "";
+    var scope = action.scopeKey ? incident[action.scopeKey] : null;
+    el.decScope.hidden = !scope;
+    if (scope) {
+      scope.forEach(function (step) {
+        var label = document.createElement("label");
+        label.className = "scope-item";
+        var input = document.createElement("input");
+        input.type = "checkbox";
+        input.checked = true;
+        input.dataset.step = step.id;
+        var copy = document.createElement("span");
+        copy.textContent = step.label;
+        var small = document.createElement("small");
+        small.textContent = step.note;
+        copy.appendChild(small);
+        label.appendChild(input);
+        label.appendChild(copy);
+        el.decScope.appendChild(label);
+      });
+    }
+
+    showDialog(el.decisionDialog);
+  }
+
+  function commitDecision() {
+    if (!state.pending) return;
+    var incident = state.incidents.filter(function (i) { return i.id === state.pending.id; })[0];
+    var key = state.pending.key;
+    var action = ACTIONS[key];
+
+    if (!el.decAttest.checked) {
+      text(el.decError, "Select the attestation to record this decision.");
+      el.decAttest.focus();
+      return;
+    }
+
+    var chosen = [];
+    if (action.scopeKey) {
+      var boxes = el.decScope.querySelectorAll("input[type=checkbox]");
+      Array.prototype.forEach.call(boxes, function (box) {
+        if (box.checked) {
+          var step = incident[action.scopeKey].filter(function (s) { return s.id === box.dataset.step; })[0];
+          if (step) chosen.push(step.label);
+        }
+      });
+      if (!chosen.length) {
+        text(el.decError, "Select at least one containment step, or cancel.");
+        return;
+      }
+    }
+
+    var note = el.decNote.value.trim();
+    incident.outcome = key;
+    incident.state = action.state;
+    incident.decisionNote = note;
+    incident.appliedCount = chosen.length;
+    incident.appliedLabels = chosen.join("; ");
+
+    incident.audit = incident.audit.concat([
+      { time: nextTimestamp(), who: "human", text: action.audit(incident) + " Attestation recorded." }
+    ]);
+    if (note) {
+      incident.audit = incident.audit.concat([{ time: nextTimestamp(), who: "human", text: "Analyst note: " + note }]);
+    }
+    if (key === "dismiss" && incident.tuning) {
+      incident.audit = incident.audit.concat([{ time: nextTimestamp(), who: "human", text: "Tuning note: " + incident.tuning }]);
+    }
+
+    state.pending = null;
+    closeDialog(el.decisionDialog);
+    render();
+    text(el.responseStatus, action.title + " recorded for " + incident.id + ".");
+  }
+
+  function reopen(incident) {
+    incident.outcome = null;
+    incident.state = "open";
+    incident.audit = incident.audit.concat([
+      { time: nextTimestamp(), who: "human", text: "Incident reopened; earlier entries remain in the trail." }
+    ]);
+    render();
+    text(el.responseStatus, incident.id + " reopened.");
+  }
+
+  /* ----------------------------------------------------------- dialogs */
+  function showDialog(dialog) {
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
+  }
+  function closeDialog(dialog) {
+    if (typeof dialog.close === "function") dialog.close();
+    else dialog.removeAttribute("open");
+  }
+
+  /* ------------------------------------------------------------ events */
+  Array.prototype.forEach.call(document.querySelectorAll("[data-filter]"), function (chip) {
+    chip.addEventListener("click", function () {
+      state.filter = chip.dataset.filter;
+      syncFilters();
+      renderQueue();
+    });
+  });
+
+  el.sigClose.addEventListener("click", function () { closeDialog(el.signalDialog); });
+  el.sigDone.addEventListener("click", function () { closeDialog(el.signalDialog); });
+  el.decCancel.addEventListener("click", function () {
+    state.pending = null;
+    closeDialog(el.decisionDialog);
+  });
+  el.decConfirm.addEventListener("click", commitDecision);
+  el.decAttest.addEventListener("change", function () {
+    if (el.decAttest.checked) text(el.decError, "");
+  });
+  el.resetDemo.addEventListener("click", function () {
+    resetState();
+    text(el.responseStatus, "Demo data restored.");
+  });
+
+  resetState();
+})();
+</script>
+</body>
+</html>

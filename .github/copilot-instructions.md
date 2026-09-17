@@ -6,6 +6,7 @@ This repository is a dependency-free static catalog of healthcare and life-scien
 
 - Select use cases from `data/catalog.js`; do not invent catalog identifiers, buyers, problems, value claims, workloads, or discovery questions.
 - Use `data/enrichment.js` for canonical Microsoft product names and official documentation links.
+- Verify any Microsoft capability, standard, or limit the catalog does not state against Microsoft Learn using the Microsoft Learn MCP server (`microsoft_docs_search`, `microsoft_docs_fetch`). Do not write product behaviour from recall.
 - Use `data/demo-scenarios.js` and `assets/demos.js` as realism and interaction references, not as a visual template to clone.
 - Do not hand-edit the generated `data/catalog.js` file.
 

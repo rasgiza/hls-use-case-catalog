@@ -41,6 +41,7 @@ Capture full-page screenshots at 375x812, 768x1024, 1280x800, and 1920x1080. At 
 - All data and identities are unmistakably fictional.
 - Consequential output has human review and an escalation route.
 - Sources, dates, confidence, and generated-versus-approved state are clear where relevant.
+- Microsoft product and feature claims trace to the catalog record, `data/enrichment.js`, or a Microsoft Learn page checked through the Microsoft Learn MCP server.
 - No network request, secret, sensitive input, customer impersonation, or unsupported outcome claim exists.
 
 ## Verdict

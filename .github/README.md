@@ -52,6 +52,17 @@ Patterns were adapted, not copied wholesale, from sources reviewed on 2026-09-16
 
 External scripts and packages were not installed. Third-party material remains reference input; repository-specific rules and standard-library validation are owned here.
 
+## External Verification
+
+Two MCP servers support this workflow when they are configured:
+
+| Server | Used for |
+| --- | --- |
+| Microsoft Learn (`microsoftdocs/mcp`) | Confirming a Microsoft capability, standard, plan, or limit before a demo asserts it |
+| Playwright (`microsoft/playwright-mcp`) | Interactive browser review during an audit |
+
+Neither is required to build a demo. Without Learn, keep product references at the level the catalog already supports rather than inventing specifics. Without Playwright, `npm run check:render` still covers overflow, clipping, inert `hidden` elements, and console errors through headless Chromium.
+
 ## Maintenance
 
 Run `npm run check:customizations` after changing agents, instructions, skills, prompts, hooks, or relative references. Add a validator rule only when it is objective and unlikely to reject a valid demo; keep subjective visual quality in browser review.

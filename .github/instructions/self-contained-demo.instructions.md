@@ -22,6 +22,8 @@ applyTo: 'demos/**/*.html'
 - Preserve human review for clinical, coverage, payment, safety, compliance, and other consequential decisions.
 - Do not present generated text as medical advice or authoritative policy. Show grounding, source, confidence, effective date, and escalation where relevant.
 - Derive hard figures only from the selected catalog record; label invented operational values as sample data, not outcomes.
+- Keep Microsoft product and feature claims accurate. Use the canonical names in `data/enrichment.js` for the record's workloads. When the demo asserts a capability, service behaviour, API shape, standard, or limit that the catalog does not state, verify it against Microsoft Learn through the **Microsoft Learn MCP server** (`microsoft_docs_search`, `microsoft_docs_fetch`, `microsoft_code_sample_search`) instead of relying on recall.
+- If that server is unavailable, keep the reference at the level the catalog supports, or mark the detail as illustrative. Do not state a specific product capability you could not check.
 - Avoid generic SaaS card grids, oversized marketing headers, decorative gradients, excessive rounding, all-caps labels, and motion without meaning.
 - Keep text readable and contained at all target widths. Avoid horizontal page scrolling and overlapping controls.
 - Run `npm run check:demos` and browser-test the primary path at 375, 768, 1280, and 1920 pixels.
