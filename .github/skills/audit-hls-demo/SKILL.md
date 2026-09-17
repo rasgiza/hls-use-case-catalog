@@ -1,14 +1,14 @@
 ---
 name: audit-hls-demo
-description: 'Audit one HLS catalog standalone demo before presentation or merge. Use for demo QA, preflight, review, accessibility checks, responsive checks, synthetic-data review, interaction testing, or "is this demo ready?" requests. Do not use to build a new demo or silently fix findings.'
-argument-hint: 'Path to one demo HTML file'
+description: 'Audit one HLS catalog standalone demo before presentation or merge, optionally against its GitHub tracking issue. Use for demo QA, preflight, review, accessibility checks, responsive checks, synthetic-data review, interaction testing, or "is this demo ready?" requests. Do not use to build a new demo or silently fix findings.'
+argument-hint: 'Demo HTML path or issue number (#123)'
 ---
 
 # Audit HLS Demo
 
 Review independently and do not edit unless the user separately asks for fixes.
 
-1. Resolve the demo's matching record in `data/catalog.js`; failure to identify exactly one record is blocking.
+1. Resolve the demo's matching record in `data/catalog.js`; failure to identify exactly one record is blocking. Given an issue number, read it with `gh issue view <number>` and audit against its acceptance criteria too.
 2. Run `npm run check:demos` and `npm run build`.
 3. Read the creation skill's [trust rules](../build-hls-demo/references/hls-trust-and-safety.md) and [quality gates](../build-hls-demo/references/quality-gates.md).
 4. Open the artifact from `file://` when possible and capture console output. If browser security prevents testing, use a temporary static server and report that deviation.
@@ -17,3 +17,5 @@ Review independently and do not edit unless the user separately asks for fixes.
 7. Report findings first by severity with reproduction evidence. Then provide a matrix for catalog fidelity, behavior, responsive layout, accessibility, trust/safety, offline behavior, and console.
 
 Use `PASS`, `PASS WITH NOTES`, or `FAIL`. Any broken primary flow, console exception, severe overlap, keyboard blocker, missing synthetic-data disclosure, live data transmission, unsupported outcome claim, or consequential action without human review is `FAIL`.
+
+When a tracking issue is in scope, post the verdict as an issue comment. Leave closing the issue to its owner.

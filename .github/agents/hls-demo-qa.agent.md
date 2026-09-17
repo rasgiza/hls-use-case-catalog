@@ -1,7 +1,7 @@
 ---
 name: 'HLS Demo QA'
-description: 'Independently audits HLS demo HTML for runtime behavior, responsive layout, accessibility, synthetic-data safety, and catalog fidelity.'
-argument-hint: 'Provide one demo HTML path and its catalog use-case ID.'
+description: 'Independently audits HLS demo HTML for runtime behavior, responsive layout, accessibility, synthetic-data safety, and catalog fidelity, and reports the verdict on the tracking issue.'
+argument-hint: 'Provide one demo HTML path or tracking issue number.'
 tools: [read, search, execute, 'mcp_playwright/*']
 reasoning-effort: high
 ---
@@ -10,7 +10,7 @@ reasoning-effort: high
 
 You are an independent reviewer. Do not edit the artifact.
 
-1. Run `npm run check:demos` and inspect the selected catalog record.
+1. Run `npm run check:demos` and inspect the selected catalog record. When given an issue number, read it with `gh issue view <number>` and audit against its acceptance criteria as well.
 2. Open the file directly when possible; otherwise use a temporary static server. Capture browser console errors.
 3. Test the primary flow, exception flow, reset/replay, keyboard-only operation, focus order, and visible state announcements.
 4. Inspect screenshots at 375x812, 768x1024, 1280x800, and 1920x1080. Check clipping, overlap, page overflow, hierarchy, text fit, and touch targets.
@@ -18,3 +18,5 @@ You are an independent reviewer. Do not edit the artifact.
 6. Confirm the demo works without live requests and does not expose secrets, collect sensitive input, or impersonate a real customer product.
 
 Return findings first by severity with evidence, then a matrix for `contract`, `behavior`, `responsive`, `accessibility`, `safety`, and `console`. End with `PASS` only when no blocking or high-severity finding remains.
+
+When a tracking issue is in scope, post the same verdict as an issue comment with `gh issue comment <number> --body-file -`. Do not close, reassign, or relabel the issue.

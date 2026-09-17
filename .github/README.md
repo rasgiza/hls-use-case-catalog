@@ -6,14 +6,27 @@ This workspace customization set supports future standalone mock demos. It does 
 
 | Need | Use |
 | --- | --- |
-| Full workflow | Select the **HLS Demo Studio** agent or run `/build-hls-demo` |
-| Brief only | Run `/plan-hls-demo` |
+| Full workflow | Select the **HLS Demo Studio** agent or run `/build-hls-demo #123` |
+| Brief only | Run `/plan-hls-demo #123` |
 | Repeatable creation procedure | Invoke the `build-hls-demo` skill |
 | Independent preflight | Select **HLS Demo QA**, run `/audit-hls-demo`, or invoke `audit-hls-demo` |
 | Automatic file rules | `instructions/self-contained-demo.instructions.md` |
 | Deterministic checks | `npm run test:harness` |
 
 The studio resolves one catalog record, isolates read-only research, builds one artifact, and delegates QA to a separate read-only agent. The `Stop` hook runs the fast demo contract check; it exits successfully while `demos/` does not yet exist.
+
+## Tracking Issues
+
+Each catalog use case has a GitHub issue labelled `demo` plus its subvertical, carrying the catalog facts, acceptance criteria, and target artifact path. The issue is the unit of coordination, so parallel contributors do not collide.
+
+```powershell
+npm run issues:preview   # render one sample issue, write nothing
+npm run issues:create    # create any missing issues; safe to re-run
+```
+
+[tools/demo-issues.mjs](../tools/demo-issues.mjs) generates issue bodies from `data/catalog.js`. It skips use cases whose demo already exists and skips titles already on the repository, so re-running only fills gaps.
+
+Working an issue: claim it by assigning yourself, run `/build-hls-demo #<number>`, post the QA verdict on the issue, and let the owner close it.
 
 ## Artifact Convention
 

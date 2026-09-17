@@ -11,6 +11,8 @@ This repository is a dependency-free static catalog of healthcare and life-scien
 
 ## Demo work
 
+- Each use case has a GitHub issue labelled `demo` that carries its acceptance criteria and target artifact path. Work from that issue, claim it before building, and report results back on it.
+- Never overwrite an existing demo artifact; audit it instead.
 - Before coding, produce a compact demo brief: user, job, decisive moment, 3-5 step happy path, exception path, proof points, and explicit non-goals.
 - Build the actual operational product screen, not a landing page or a generic dashboard.
 - Use synthetic, fictional data only. Keep a persistent visible disclosure in every demo.
