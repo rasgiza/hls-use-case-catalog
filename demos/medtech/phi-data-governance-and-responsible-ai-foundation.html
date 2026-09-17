@@ -1,0 +1,1198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Larkspur Governance Desk — AI Release Review (illustrative demo)</title>
+<style>
+  :root {
+    --ink: #1a1d1b;
+    --ink-2: #4b524e;
+    --ink-3: #6e766f;
+    --surface: #ffffff;
+    --canvas: #f0efea;
+    --rail: #f7f6f2;
+    --line: #d9d7ce;
+    --line-soft: #e8e6df;
+    --accent: #2f6b4f;
+    --accent-deep: #245440;
+    --accent-soft: #e6f1ea;
+    --pass: #2f6b4f;
+    --pass-bg: #e6f1ea;
+    --warn: #8a5a12;
+    --warn-bg: #fbf0dd;
+    --fail: #9c2f2a;
+    --fail-bg: #fbeae9;
+    --mute-bg: #eceae3;
+    --focus: #1a56db;
+    --radius: 6px;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+
+  /* Author display rules outrank the UA [hidden] rule, so restore it explicitly. */
+  [hidden] { display: none !important; }
+
+  body {
+    margin: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  :where(button, input, select, textarea):focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  /* ------------------------------------------------------------- app bar */
+  .appbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
+    padding: 10px 18px; background: #20261f; color: #f0f2ee;
+    border-bottom: 3px solid var(--accent);
+    position: sticky; top: 0; z-index: 30;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+  .brand-name { font-weight: 650; }
+  .brand-sub { display: block; font-size: 12px; font-weight: 400; color: #a9b3a6; }
+  .disclosure {
+    display: inline-flex; align-items: center; gap: 7px; margin: 0; flex: none;
+    padding: 5px 10px; border: 1px solid #4d6152; border-radius: 999px;
+    background: #2b3529; color: #cfe0d4; font-size: 12px; font-weight: 600;
+  }
+  .who { margin: 0; font-size: 13px; color: #b6bfb3; text-align: right; }
+  .who b { color: #f0f2ee; font-weight: 600; }
+
+  /* ------------------------------------------------------------- buttons */
+  .btn {
+    font: inherit; font-size: 14px; font-weight: 550; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 8px 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+    min-height: 38px;
+  }
+  .btn:hover:not(:disabled) { border-color: #b4b1a5; }
+  .btn:disabled { cursor: not-allowed; opacity: .55; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-deep); border-color: var(--accent-deep); }
+  .btn-light { background: transparent; color: #dbe4d9; border-color: #46543f; }
+  .btn-light:hover { background: #2b3529; }
+  .btn-link {
+    font: inherit; font-size: 13px; color: var(--accent-deep); background: none;
+    border: 0; border-bottom: 1px solid #9cc0ab; padding: 0 0 1px; cursor: pointer;
+  }
+  .btn-link:hover { border-bottom-color: var(--accent); }
+
+  /* -------------------------------------------------------------- layout */
+  .shell {
+    display: grid; grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
+    gap: 1px; background: var(--line); min-height: calc(100vh - 120px);
+  }
+  .pane { background: var(--canvas); min-width: 0; }
+  .pane-rail { background: var(--rail); }
+
+  .pane-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    padding: 13px 15px 9px;
+  }
+  .pane-head h2 { margin: 0; font-size: 13px; color: var(--ink-2); font-weight: 650; }
+  .pane-head .count { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+  /* ------------------------------------------------------------- request list */
+  .filters { display: flex; gap: 6px; padding: 0 15px 10px; flex-wrap: wrap; }
+  .chip {
+    font: inherit; font-size: 12.5px; font-weight: 550; padding: 5px 11px; min-height: 32px;
+    border-radius: 999px; border: 1px solid var(--line); background: var(--surface);
+    color: var(--ink-2); cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .requests { list-style: none; margin: 0; padding: 0 12px 16px; display: grid; gap: 8px; }
+  .request {
+    width: 100%; text-align: left; font: inherit; cursor: pointer; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--line);
+    border-radius: var(--radius); padding: 10px 11px; display: grid; gap: 6px;
+  }
+  .request:hover { border-color: #b4b1a5; }
+  .request[aria-current="true"] { border-color: var(--accent); border-left-color: var(--accent); background: #f4f9f5; }
+  .rq-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .rq-id { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+  .rq-title { font-weight: 600; font-size: 14px; line-height: 1.35; }
+  .rq-meta { font-size: 12.5px; color: var(--ink-3); }
+  .list-empty { padding: 4px 15px 16px; color: var(--ink-3); font-size: 13.5px; }
+
+  .state {
+    display: inline-flex; align-items: center; gap: 5px; flex: none;
+    font-size: 11.5px; font-weight: 650; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--mute-bg); color: var(--ink-2); white-space: nowrap;
+  }
+  .state-approved { background: var(--pass-bg); color: var(--pass); border-color: #a9cdba; }
+  .state-conditional { background: var(--warn-bg); color: var(--warn); border-color: #e0c58f; }
+  .state-returned { background: var(--fail-bg); color: var(--fail); border-color: #e2b5b2; }
+
+  /* --------------------------------------------------------------- case */
+  /* minmax(0,…) stops the wide lineage strip from stretching the column past the viewport. */
+  .case { padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-content: start; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+  .card-head {
+    display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; justify-content: space-between;
+    padding: 12px 15px; border-bottom: 1px solid var(--line-soft);
+  }
+  .card-head h2, .card-head h3 { margin: 0; font-size: 14.5px; font-weight: 650; }
+  .card-note { font-size: 12.5px; color: var(--ink-3); }
+  .card-body { padding: 14px 15px; }
+
+  .case-title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .case-title h2 { margin: 0; font-size: 19px; line-height: 1.3; }
+  .case-id { font-family: var(--mono); font-size: 13px; color: var(--ink-3); }
+
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 11px 16px; margin: 0; }
+  .facts dt { font-size: 12px; color: var(--ink-3); margin-bottom: 2px; }
+  .facts dd { margin: 0; font-size: 14px; }
+  .facts .mono { font-family: var(--mono); font-size: 13px; }
+
+  /* ------------------------------------------------------------ decision */
+  .decide { border-color: #b9cfc2; }
+  .decide .card-head { background: var(--accent-soft); border-radius: var(--radius) var(--radius) 0 0; }
+  .rule {
+    display: flex; gap: 9px; align-items: flex-start; font-size: 12.5px; color: var(--ink-2);
+    background: var(--rail); border: 1px solid var(--line-soft); padding: 9px 11px; border-radius: var(--radius);
+  }
+  .rule svg { flex: none; margin-top: 1px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 9px; }
+  .notice {
+    display: flex; gap: 9px; align-items: flex-start; font-size: 13.5px;
+    padding: 10px 12px; border-radius: var(--radius); border: 1px solid transparent;
+  }
+  .notice svg { flex: none; margin-top: 2px; }
+  .notice-block { background: var(--fail-bg); border-color: #e2b5b2; color: #7e2723; }
+  .notice-done { background: var(--pass-bg); border-color: #a9cdba; color: #1f5740; }
+  .notice-cond { background: var(--warn-bg); border-color: #e0c58f; color: #78500f; }
+  .notice-note { display: block; margin-top: 3px; font-size: 12.5px; opacity: .92; }
+
+  /* ------------------------------------------------------------- lineage */
+  .lineage-wrap { padding: 14px 15px; overflow-x: auto; }
+  .lineage {
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(168px, 1fr);
+    gap: 26px; align-items: stretch; min-width: min-content; margin: 0; padding: 0; list-style: none;
+  }
+  .lineage li { position: relative; display: flex; }
+  .lineage li:not(:last-child)::after {
+    content: ""; position: absolute; right: -20px; top: 50%; width: 14px; height: 2px;
+    background: #b9b6aa;
+  }
+  .lineage li:not(:last-child)::before {
+    content: ""; position: absolute; right: -20px; top: 50%; width: 0; height: 0;
+    border-left: 6px solid #b9b6aa; border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+    transform: translate(8px, -3px);
+  }
+  .node {
+    font: inherit; text-align: left; cursor: pointer; width: 100%;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 10px 11px; display: grid; gap: 5px; align-content: start; color: var(--ink);
+  }
+  .node:hover { border-color: #b4b1a5; }
+  .node-kind { font-size: 11px; color: var(--ink-3); letter-spacing: .2px; }
+  .node-name { font-family: var(--mono); font-size: 12.5px; font-weight: 600; word-break: break-word; }
+  .node-role { font-size: 12px; color: var(--ink-3); }
+  .node.is-fail { border-color: #d89b97; background: #fdf5f4; }
+  .node.is-pending { border-style: dashed; color: var(--ink-3); }
+
+  .label {
+    display: inline-flex; align-items: center; gap: 5px; margin-top: 2px;
+    font-size: 11.5px; font-weight: 650; padding: 2px 7px; border-radius: 3px;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  .label-phi { background: var(--fail-bg); color: var(--fail); border-color: #e2b5b2; }
+  .label-deid { background: var(--pass-bg); color: var(--pass); border-color: #a9cdba; }
+  .label-internal { background: var(--mute-bg); color: var(--ink-2); border-color: var(--line); }
+  .label-none { background: var(--warn-bg); color: var(--warn); border-color: #e0c58f; }
+
+  .scan { display: grid; gap: 9px; padding: 14px 15px; }
+  .scan progress { width: 100%; max-width: 280px; height: 6px; }
+  .status-line { font-size: 13.5px; color: var(--ink-2); margin: 0; min-height: 20px; }
+
+  /* ------------------------------------------------------------ controls */
+  .controls { list-style: none; margin: 0; padding: 0; display: grid; }
+  .controls li {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px;
+    padding: 11px 15px; border-top: 1px solid var(--line-soft); align-items: start;
+  }
+  .controls li:first-child { border-top: 0; }
+  .controls li:hover { background: #fafaf7; }
+  .ctl-name { display: block; font-weight: 550; font-size: 14px; }
+  .ctl-note { display: block; font-size: 12.5px; color: var(--ink-3); margin-top: 3px; }
+  .ctl-src { display: inline-block; margin-top: 5px; font-size: 11.5px; color: var(--accent-deep); background: var(--accent-soft); border: 1px solid #b9cfc2; border-radius: 3px; padding: 1px 6px; }
+  .st { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; white-space: nowrap; }
+  .st-pass { color: var(--pass); }
+  .st-fail { color: var(--fail); }
+  .st-stale { color: var(--warn); }
+  .st-pending { color: var(--ink-3); }
+
+  /* -------------------------------------------------------------- audit */
+  .audit { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; font-size: 13px; }
+  .audit li { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px; }
+  .audit time { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+  .audit .actor { font-weight: 600; }
+  .audit .actor.is-system { color: var(--ink-2); }
+  .audit .actor.is-human { color: var(--accent-deep); }
+
+  /* ------------------------------------------------------------- dialog */
+  dialog {
+    border: 1px solid var(--line); border-radius: 8px; padding: 0; color: var(--ink);
+    width: min(640px, calc(100vw - 32px)); box-shadow: 0 18px 44px rgba(26, 29, 27, .28);
+  }
+  dialog::backdrop { background: rgba(26, 29, 27, .45); }
+  .dlg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 15px 17px; border-bottom: 1px solid var(--line-soft); }
+  .dlg-head h2 { margin: 0; font-size: 16px; }
+  .dlg-sub { display: block; margin-top: 3px; font-size: 12.5px; color: var(--ink-3); }
+  .dlg-body { padding: 15px 17px; display: grid; gap: 12px; }
+  .dlg-foot { display: flex; flex-wrap: wrap; gap: 9px; justify-content: flex-end; padding: 13px 17px; border-top: 1px solid var(--line-soft); background: var(--rail); }
+  .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 9px 14px; font-size: 13px; margin: 0; }
+  .meta-grid dt { color: var(--ink-3); font-size: 12px; }
+  .meta-grid dd { margin: 0; }
+  .excerpt {
+    font-size: 13.5px; line-height: 1.6; background: var(--rail);
+    border: 1px solid var(--line-soft); border-left: 3px solid var(--accent);
+    padding: 11px 12px; border-radius: 0 var(--radius) var(--radius) 0; white-space: pre-wrap;
+  }
+  .privacy-note { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; color: var(--ink-3); }
+  .privacy-note svg { flex: none; margin-top: 1px; }
+
+  .attest { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; padding: 11px 12px; background: var(--rail); border: 1px solid var(--line-soft); border-radius: var(--radius); }
+  .attest input { width: 18px; height: 18px; margin: 1px 0 0; flex: none; }
+  .field { display: grid; gap: 5px; }
+  .field label { font-size: 13px; color: var(--ink-2); font-weight: 550; }
+  .field textarea, .field input[type="date"] {
+    font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid var(--line);
+    border-radius: var(--radius); color: var(--ink); background: var(--surface);
+  }
+  .field textarea { resize: vertical; min-height: 66px; }
+  .dlg-error { font-size: 13px; color: var(--fail); min-height: 18px; margin: 0; }
+
+  /* ------------------------------------------------------------- footer */
+  .footer {
+    display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center;
+    padding: 11px 18px; background: #20261f; color: #a9b3a6; font-size: 12.5px;
+  }
+  .built { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .svc-chip { border: 1px solid #45543f; border-radius: 3px; padding: 2px 7px; color: #cfd8cb; }
+  .claim { margin-left: auto; max-width: 56ch; }
+  .claim b { color: #e6ebe3; font-weight: 600; }
+
+  /* --------------------------------------------------------- responsive */
+  @media (max-width: 960px) {
+    .shell { grid-template-columns: minmax(0, 1fr); }
+    .requests { grid-auto-flow: column; grid-auto-columns: minmax(230px, 74vw); overflow-x: auto; padding-bottom: 14px; }
+  }
+  @media (max-width: 700px) {
+    .who { text-align: left; }
+    .claim { margin-left: 0; }
+    .case { padding: 13px; }
+    .appbar { gap: 8px 12px; padding: 8px 14px; }
+    .brand-sub { display: none; }
+    .brand-name { font-size: 14.5px; }
+    .lineage { grid-auto-flow: row; grid-auto-columns: auto; gap: 18px; }
+    .lineage li:not(:last-child)::after { right: auto; left: 50%; top: auto; bottom: -12px; width: 2px; height: 10px; }
+    .lineage li:not(:last-child)::before { right: auto; left: 50%; top: auto; bottom: -14px;
+      border-left: 4px solid transparent; border-right: 4px solid transparent;
+      border-top: 6px solid #b9b6aa; border-bottom: 0; transform: translate(-3px, 0); }
+    .controls li { grid-template-columns: minmax(0, 1fr); gap: 5px; }
+    .controls li > *:last-child { justify-self: start; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<svg class="sr-only" aria-hidden="true" focusable="false">
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="M3 8.5l3.2 3.2L13 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-x" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 16 16"><path d="M8 2.5l6 11H2l6-11z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 6.6v3.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="11.7" r=".9" fill="currentColor"/></symbol>
+  <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="4.9" r=".9" fill="currentColor"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.6V8l2.4 1.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-dash" viewBox="0 0 16 16"><path d="M4 8h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 16 16"><rect x="3.2" y="7" width="9.6" height="7" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-graph" viewBox="0 0 16 16"><circle cx="3.4" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="12.6" cy="4.2" r="2" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="12.6" cy="11.8" r="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.3 7.1l5.5-2.2M5.3 8.9l5.5 2.2" stroke="currentColor" stroke-width="1.4"/></symbol>
+</svg>
+
+<header class="appbar">
+  <div class="brand">
+    <svg width="24" height="24" viewBox="0 0 16 16" aria-hidden="true" style="color:#8fd0aa"><use href="#i-graph"/></svg>
+    <span class="brand-name">Larkspur Governance Desk &mdash; AI Release Review
+      <span class="brand-sub">Larkspur Biomedical &middot; fictional device manufacturer</span>
+    </span>
+  </div>
+
+  <p class="disclosure">
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-info"/></svg>
+    Illustrative demo &middot; synthetic data
+  </p>
+
+  <p class="who"><b>N. Adeyemi</b><br>Data governance steward</p>
+
+  <button type="button" class="btn btn-light" id="resetDemo">Restore demo data</button>
+</header>
+
+<main class="shell">
+
+  <!-- ===================================================== requests -->
+  <section class="pane pane-rail" aria-labelledby="queueHeading">
+    <div class="pane-head">
+      <h2 id="queueHeading">Release requests</h2>
+      <span class="count" id="queueCount"></span>
+    </div>
+
+    <div class="filters" role="group" aria-label="Filter requests by state">
+      <button type="button" class="chip" data-filter="all" aria-pressed="true">All</button>
+      <button type="button" class="chip" data-filter="open" aria-pressed="false">Awaiting review</button>
+      <button type="button" class="chip" data-filter="closed" aria-pressed="false">Decided</button>
+    </div>
+
+    <ul class="requests" id="requestList"></ul>
+    <p class="list-empty" id="listEmpty" hidden>No requests match this filter.</p>
+  </section>
+
+  <!-- ===================================================== case -->
+  <section class="pane" aria-labelledby="caseHeading">
+    <div class="case">
+
+      <article class="card">
+        <div class="card-head">
+          <div class="case-title">
+            <h2 id="caseHeading">Release request</h2>
+            <span class="case-id" id="caseId"></span>
+          </div>
+          <p class="card-note" id="caseSla"></p>
+        </div>
+        <div class="card-body"><dl class="facts" id="caseFacts"></dl></div>
+      </article>
+
+      <!-- decision stays high so the next action is in the first viewport -->
+      <article class="card decide" aria-labelledby="decideHeading">
+        <div class="card-head">
+          <h3 id="decideHeading">Governance decision</h3>
+          <span class="card-note">steward sign-off required</span>
+        </div>
+        <div class="card-body" style="display:grid;gap:11px">
+          <p class="rule">
+            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-info"/></svg>
+            <span>A release is approved when every required control passes. A stale control can be approved with a time-boxed condition. A failed control goes back to the data owner to remediate; governance does not waive it.</span>
+          </p>
+          <p class="notice notice-block" id="blockNotice" hidden>
+            <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-alert"/></svg>
+            <span id="blockText"></span>
+          </p>
+          <p class="notice" id="outcomeNotice" hidden>
+            <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-check"/></svg>
+            <span id="outcomeText"></span>
+          </p>
+          <div class="actions" id="decisionActions"></div>
+          <p class="sr-only" id="decisionStatus" role="status"></p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h3>Data lineage</h3>
+          <span class="card-note">sources, process, targets &middot; select a node for its record</span>
+        </div>
+        <div id="lineageRoot"></div>
+        <div class="scan" id="scanBox" hidden>
+          <p class="status-line" id="scanStatus" role="status"></p>
+          <progress id="scanProgress" hidden aria-label="Running lineage scan"></progress>
+          <p><button type="button" class="btn" id="runScan">Run lineage scan</button></p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h3>Governance controls</h3>
+          <span class="card-note" id="controlSummary"></span>
+        </div>
+        <ul class="controls" id="controlList"></ul>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><h3>Audit trail</h3><span class="card-note">append-only</span></div>
+        <div class="card-body"><ul class="audit" id="auditList"></ul></div>
+      </article>
+
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <span class="built">
+    Built on
+    <span class="svc-chip">Microsoft Purview</span>
+    <span class="svc-chip">Microsoft Defender for Cloud</span>
+  </span>
+  <span class="claim">
+    FY27 HLS catalog value claim for this use case: <b>compliance risk down, data discoverability and trust up, AI initiatives unblocked, lineage and classification automated.</b>
+    The catalog states no figures here, so every number on this screen is fictional operational data.
+  </span>
+</footer>
+
+<!-- ===================================================== node dialog -->
+<dialog id="nodeDialog" aria-labelledby="nodeTitle">
+  <div class="dlg-head">
+    <div>
+      <h2 id="nodeTitle"></h2>
+      <span class="dlg-sub" id="nodeSub"></span>
+    </div>
+    <button type="button" class="btn" id="nodeClose">Close</button>
+  </div>
+  <div class="dlg-body">
+    <dl class="meta-grid" id="nodeMeta"></dl>
+    <p class="excerpt" id="nodeDetail"></p>
+    <p class="privacy-note">
+      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-lock"/></svg>
+      This console shows classification and counts only. No patient or subject records are displayed here, by design.
+    </p>
+  </div>
+  <div class="dlg-foot">
+    <button type="button" class="btn btn-primary" id="nodeDone">Back to request</button>
+  </div>
+</dialog>
+
+<!-- ===================================================== decision dialog -->
+<dialog id="decisionDialog" aria-labelledby="decTitle">
+  <form method="dialog">
+    <div class="dlg-head">
+      <div>
+        <h2 id="decTitle"></h2>
+        <span class="dlg-sub" id="decSub"></span>
+      </div>
+    </div>
+    <div class="dlg-body">
+      <p id="decExplain" style="margin:0;font-size:14px"></p>
+      <label class="attest">
+        <input type="checkbox" id="decAttest">
+        <span id="decAttestText"></span>
+      </label>
+      <div class="field" id="decDateField" hidden>
+        <label for="decDate">Condition review date</label>
+        <input type="date" id="decDate">
+      </div>
+      <div class="field">
+        <label for="decNote">Steward note <span style="font-weight:400;color:var(--ink-3)">(recorded in the audit trail)</span></label>
+        <textarea id="decNote" placeholder="Optional context for this decision"></textarea>
+      </div>
+      <p class="dlg-error" id="decError" role="alert"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" id="decCancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="decConfirm"></button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+   * Fixture data. Every asset, model, owner, and finding below is
+   * invented. Classification and counts only; no records are shown.
+   * ---------------------------------------------------------------- */
+  var LABELS = {
+    phi: { cls: "label-phi", text: "Confidential · health data" },
+    deid: { cls: "label-deid", text: "De-identified" },
+    internal: { cls: "label-internal", text: "Internal" },
+    public: { cls: "label-internal", text: "Public" },
+    none: { cls: "label-none", text: "Unclassified" }
+  };
+
+  var CONTROLS = [
+    { id: "purpose", name: "Purpose and intended use documented",
+      why: "The registration states what the system decides and where its output is used." },
+    { id: "classified", name: "All upstream sources classified",
+      why: "Every source in lineage carries a classification before the release is considered." },
+    { id: "protected", name: "Sensitivity label and protection policy applied",
+      why: "Sources holding health data carry a label and an enforced policy." },
+    { id: "phiMethod", name: "Health-data handling method documented",
+      why: "De-identification, minimisation, or a documented reason it does not apply." },
+    { id: "evaluated", name: "Evaluation within the 180-day policy window",
+      why: "A current evaluation record exists for the model version being released." },
+    { id: "oversight", name: "Human oversight defined for consequential output",
+      why: "A named reviewer stands between the output and any decision about a person." },
+    { id: "lineage", name: "Lineage complete and current",
+      why: "The data map resolves every hop from source to serving target." }
+  ];
+
+  var REQUESTS = [
+    {
+      id: "AIR-1042",
+      title: "Imaging triage assist, model v2",
+      owner: "Imaging Platform team",
+      submitted: "2026-09-14",
+      sla: "Review target 5 working days · day 3",
+      purpose: "Ranks incoming studies so radiology reads the most urgent first.",
+      surface: "Clinician review queue",
+      scanned: true,
+      lineage: [
+        { kind: "Source", name: "imaging-archive", role: "DICOM study archive", label: "phi",
+          detail: "Classified by Microsoft Purview scan on 2026-09-02.\nSensitivity label applied and enforced.\nAsset holds study metadata and pixel data for 412,000 studies (count only; no records shown).",
+          meta: [["Classification", "Confidential · health data"], ["Label applied", "Yes, enforced"], ["Last scan", "2026-09-02"], ["Recorded in", "Purview Data Map"]] },
+        { kind: "Process", name: "deid-pipeline", role: "De-identification job", label: null,
+          detail: "Removes direct identifiers and shifts study dates before any training copy is written.\nMethod documented in the release registration and linked to this process node.\nRuns on every extract; last execution succeeded.",
+          meta: [["Type", "Transformation"], ["Method", "Documented de-identification"], ["Last run", "2026-09-13, succeeded"], ["Recorded in", "Purview Data Map"]] },
+        { kind: "Dataset", name: "training-set-v4", role: "Training and evaluation set", label: "deid",
+          detail: "Derived from the archive through the de-identification job.\nClassified as de-identified after verification sampling.\n38,400 studies in the set (count only).",
+          meta: [["Classification", "De-identified"], ["Derived from", "imaging-archive"], ["Verified", "2026-09-13"], ["Recorded in", "Purview Unified Catalog"]] },
+        { kind: "Model", name: "triage-assist-v2", role: "Ranking model", label: null,
+          detail: "Evaluation record dated 2026-08-30, inside the 180-day policy window.\nRegistered with intended use, limitations, and the reviewer role that signs off on output.",
+          meta: [["Version", "v2"], ["Evaluation", "2026-08-30"], ["Window", "Within 180 days"], ["Oversight", "Radiologist review"]] },
+        { kind: "Target", name: "clinician-review", role: "Radiology worklist", label: null,
+          detail: "Output orders the worklist only. A radiologist opens and reads every study, so the model never removes a study from the queue.\nMonitored for AI workload risks in Microsoft Defender for Cloud.",
+          meta: [["Serving surface", "Worklist ordering"], ["Human oversight", "Radiologist reads all studies"], ["Autonomy", "None — ordering only"], ["Runtime monitoring", "Defender for Cloud"]] }
+      ],
+      controls: {
+        purpose: { state: "pass", note: "Registration states ranking only, with radiologist review.", src: "Release registration" },
+        classified: { state: "pass", note: "All 3 data nodes carry a classification.", src: "Purview Data Map" },
+        protected: { state: "pass", note: "Label applied and enforced on the archive.", src: "Purview sensitivity labels" },
+        phiMethod: { state: "pass", note: "De-identification method documented and linked to the pipeline node.", src: "Release registration" },
+        evaluated: { state: "pass", note: "Evaluation dated 2026-08-30, 18 days old.", src: "Evaluation record" },
+        oversight: { state: "pass", note: "Radiologist reads every study; model orders the queue only.", src: "Release registration" },
+        lineage: { state: "pass", note: "5 of 5 hops resolved in the data map.", src: "Purview Data Map" }
+      },
+      actions: ["approve", "return"],
+      audit: [
+        { time: "09:02", who: "system", text: "Request AIR-1042 submitted by the Imaging Platform team." },
+        { time: "09:05", who: "system", text: "Lineage resolved: 5 nodes, 3 classified data assets." }
+      ]
+    },
+    {
+      id: "AIR-1043",
+      title: "Support ticket summariser, model v1",
+      owner: "Service Operations team",
+      submitted: "2026-09-15",
+      sla: "Review target 5 working days · day 2",
+      purpose: "Summarises device support tickets so engineers triage faster.",
+      surface: "Support agent console",
+      scanned: true,
+      lineage: [
+        { kind: "Source", name: "support-notes", role: "Free-text ticket notes", label: "none",
+          detail: "No classification recorded for this asset.\nClassifier sampling matched health-information patterns in the free-text field, which means the asset may hold health data that was never labelled.\nCounts only; no note contents are shown in this console.",
+          meta: [["Classification", "None recorded"], ["Sampling result", "Health-information patterns matched"], ["Label applied", "No"], ["Recorded in", "Purview Data Map"]] },
+        { kind: "Process", name: "text-normalise", role: "Text cleanup job", label: null,
+          detail: "Strips markup and normalises whitespace. It does not remove identifiers, so it cannot substitute for a de-identification step.",
+          meta: [["Type", "Transformation"], ["Removes identifiers", "No"], ["Last run", "2026-09-15, succeeded"], ["Recorded in", "Purview Data Map"]] },
+        { kind: "Dataset", name: "ticket-corpus-v1", role: "Training corpus", label: "none",
+          detail: "Inherits the unresolved classification of its source. Until the source is classified and labelled, the corpus cannot be treated as safe for training.",
+          meta: [["Classification", "Inherited, unresolved"], ["Derived from", "support-notes"], ["Verified", "Not verified"], ["Recorded in", "Purview Unified Catalog"]] },
+        { kind: "Model", name: "ticket-summariser-v1", role: "Summarisation model", label: null,
+          detail: "Evaluation record dated 2026-09-01. The evaluation is current, but it does not address the unresolved classification upstream.",
+          meta: [["Version", "v1"], ["Evaluation", "2026-09-01"], ["Window", "Within 180 days"], ["Oversight", "Engineer reviews summary"]] },
+        { kind: "Target", name: "agent-console", role: "Support agent console", label: null,
+          detail: "Summary is shown to an engineer who keeps the original ticket in view.\nMonitored for AI workload risks in Microsoft Defender for Cloud.",
+          meta: [["Serving surface", "Agent console"], ["Human oversight", "Engineer reads the ticket"], ["Autonomy", "None — summary only"], ["Runtime monitoring", "Defender for Cloud"]] }
+      ],
+      controls: {
+        purpose: { state: "pass", note: "Registration states summarisation for engineer triage.", src: "Release registration" },
+        classified: { state: "fail", note: "support-notes has no classification, and sampling matched health-information patterns.", src: "Purview Data Map" },
+        protected: { state: "fail", note: "No sensitivity label or protection policy on the unclassified source.", src: "Purview sensitivity labels" },
+        phiMethod: { state: "fail", note: "No handling method documented; text cleanup does not remove identifiers.", src: "Release registration" },
+        evaluated: { state: "pass", note: "Evaluation dated 2026-09-01, 16 days old.", src: "Evaluation record" },
+        oversight: { state: "pass", note: "Engineer reads the source ticket alongside the summary.", src: "Release registration" },
+        lineage: { state: "pass", note: "5 of 5 hops resolved in the data map.", src: "Purview Data Map" }
+      },
+      actions: ["return", "escalate"],
+      blocked: "Approval is unavailable. support-notes carries no classification and classifier sampling matched health-information patterns, so three required controls fail. Governance does not waive a failed control: the data owner classifies and labels the source, then the request returns for review. Because possible health data reached a training corpus, this also goes to the privacy officer.",
+      audit: [
+        { time: "09:08", who: "system", text: "Request AIR-1043 submitted by the Service Operations team." },
+        { time: "09:11", who: "system", text: "Lineage resolved: 5 nodes. 1 source unclassified." },
+        { time: "09:11", who: "system", text: "Approval withheld: 3 required controls failed." }
+      ]
+    },
+    {
+      id: "AIR-1045",
+      title: "Field service knowledge assistant, model v3",
+      owner: "Field Service team",
+      submitted: "2026-09-16",
+      sla: "Review target 5 working days · day 1",
+      purpose: "Answers field engineer questions from service manuals and past reports.",
+      surface: "Field engineer mobile app",
+      scanned: false,
+      scan: {
+        idle: "Lineage has not been resolved for this request. Run the scan to map every hop from source to serving target before reviewing controls.",
+        working: "Resolving lineage across connected sources…",
+        done: "Lineage resolved: 5 nodes, 3 classified data assets. No health data found in the upstream sources.",
+        audit: "Lineage scan completed: 5 nodes resolved, no health data upstream."
+      },
+      lineage: [
+        { kind: "Source", name: "service-manuals", role: "Published service documentation", label: "public",
+          detail: "Published documentation for deployed devices. Classified as public; no restriction applies.",
+          meta: [["Classification", "Public"], ["Label applied", "Not required"], ["Last scan", "2026-09-16"], ["Recorded in", "Purview Data Map"]] },
+        { kind: "Source", name: "field-reports", role: "Engineer service reports", label: "internal",
+          detail: "Engineer-authored service reports about equipment, not patients.\nClassified internal; sampling found no health-information patterns.",
+          meta: [["Classification", "Internal"], ["Health data found", "No"], ["Last scan", "2026-09-16"], ["Recorded in", "Purview Data Map"]] },
+        { kind: "Process", name: "index-build", role: "Retrieval index build", label: null,
+          detail: "Builds the retrieval index the assistant grounds its answers on. Rebuilt nightly from both sources.",
+          meta: [["Type", "Transformation"], ["Cadence", "Nightly"], ["Last run", "2026-09-16, succeeded"], ["Recorded in", "Purview Data Map"]] },
+        { kind: "Model", name: "service-assistant-v3", role: "Grounded answering model", label: null,
+          detail: "Evaluation record dated 2026-02-15, which is 214 days old and outside the 180-day policy window.\nThe registration is otherwise complete.",
+          meta: [["Version", "v3"], ["Evaluation", "2026-02-15"], ["Age", "214 days"], ["Window", "Outside 180 days"]] },
+        { kind: "Target", name: "field-app", role: "Field engineer mobile app", label: null,
+          detail: "Answers are shown with the source passage, and the engineer follows the manual for any procedure.\nMonitored for AI workload risks in Microsoft Defender for Cloud.",
+          meta: [["Serving surface", "Mobile app"], ["Human oversight", "Engineer follows the manual"], ["Autonomy", "None — answers only"], ["Runtime monitoring", "Defender for Cloud"]] }
+      ],
+      controls: {
+        purpose: { state: "pass", note: "Registration states grounded answering for field engineers.", src: "Release registration" },
+        classified: { state: "pass", note: "Both sources classified; no health data found.", src: "Purview Data Map" },
+        protected: { state: "pass", note: "No health data upstream, so no protection policy is required.", src: "Purview sensitivity labels" },
+        phiMethod: { state: "pass", note: "Documented as not applicable; sampling found no health data.", src: "Release registration" },
+        evaluated: { state: "stale", note: "Evaluation dated 2026-02-15 is 214 days old, past the 180-day window.", src: "Evaluation record" },
+        oversight: { state: "pass", note: "Answers cite the source passage; engineer follows the manual.", src: "Release registration" },
+        lineage: { state: "pass", note: "5 of 5 hops resolved in the data map.", src: "Purview Data Map" }
+      },
+      actions: ["approveCondition", "return"],
+      audit: [
+        { time: "09:14", who: "system", text: "Request AIR-1045 submitted by the Field Service team." }
+      ]
+    }
+  ];
+
+  var ACTIONS = {
+    approve: {
+      label: "Approve release", primary: true, title: "Approve release",
+      explain: "Approval clears this model version for the serving surface in the registration. It applies to this version only; a new version returns for review.",
+      attest: "I reviewed the lineage and every governance control, and I approve this release.",
+      confirm: "Record approval", state: "approved", notice: "notice-done",
+      text: function (r) { return "Approved by N. Adeyemi. " + r.id + " is cleared for " + r.surface + ", for this model version only."; },
+      note: "Reversible from this console. A new model version returns for review.",
+      audit: function () { return "Release approved for the registered serving surface. Attestation recorded."; }
+    },
+    approveCondition: {
+      label: "Approve with condition", primary: true, title: "Approve with condition",
+      explain: "A stale control can be cleared with a time-boxed condition. The release proceeds, and the condition is tracked with a review date so it cannot quietly lapse.",
+      attest: "I accept this release subject to the condition recorded below.",
+      confirm: "Record conditional approval", state: "conditional", notice: "notice-cond", needsDate: true,
+      text: function (r) { return "Approved with condition by N. Adeyemi. " + r.id + " proceeds while the evaluation is refreshed."; },
+      note: "The condition is tracked to its review date; the approval lapses if it is not met.",
+      audit: function (r) { return "Conditional approval recorded; evaluation to be refreshed by " + r.conditionDate + "."; }
+    },
+    return: {
+      label: "Return to data owner", primary: false, title: "Return to data owner",
+      explain: "Returning sends the failing controls and their evidence back to the owning team. Nothing is approved by this step.",
+      attest: "I confirm these findings go back to the data owner for remediation.",
+      confirm: "Return request", state: "returned", notice: "notice-cond",
+      text: function (r) { return "Returned to " + r.owner + " by N. Adeyemi. " + r.id + " stays unapproved until the findings are remediated."; },
+      note: "The request returns for review once the owner resolves the findings.",
+      audit: function () { return "Returned to the data owner with the failing controls and evidence attached."; }
+    },
+    escalate: {
+      label: "Notify privacy officer", primary: false, title: "Notify privacy officer",
+      explain: "This raises the possible exposure of health data to the privacy officer with the lineage and sampling evidence attached. It is not an approval.",
+      attest: "I confirm the privacy officer should review this exposure.",
+      confirm: "Notify", state: "returned", notice: "notice-cond",
+      text: function (r) { return "Privacy officer notified by N. Adeyemi. " + r.id + " remains unapproved pending their review."; },
+      note: "Runs alongside remediation by the data owner.",
+      audit: function () { return "Privacy officer notified; lineage and sampling evidence attached."; }
+    }
+  };
+
+  var STATE_LABELS = {
+    open: { cls: "", label: "Awaiting review" },
+    approved: { cls: "state-approved", label: "Approved" },
+    conditional: { cls: "state-conditional", label: "Approved with condition" },
+    returned: { cls: "state-returned", label: "Returned" }
+  };
+
+  var CTL_META = {
+    pass: { cls: "st-pass", icon: "check", label: "Met" },
+    fail: { cls: "st-fail", icon: "x", label: "Failed" },
+    stale: { cls: "st-stale", icon: "clock", label: "Out of date" },
+    pending: { cls: "st-pending", icon: "dash", label: "Awaiting lineage" }
+  };
+
+  /* ------------------------------------------------------------------ */
+  var state = { requests: [], activeId: null, filter: "all", clock: 0, pending: null };
+  var el = {};
+  ["requestList", "queueCount", "listEmpty", "caseHeading", "caseId", "caseSla", "caseFacts",
+   "blockNotice", "blockText", "outcomeNotice", "outcomeText", "decisionActions", "decisionStatus",
+   "lineageRoot", "scanBox", "scanStatus", "scanProgress", "runScan",
+   "controlSummary", "controlList", "auditList", "resetDemo",
+   "nodeDialog", "nodeTitle", "nodeSub", "nodeMeta", "nodeDetail", "nodeClose", "nodeDone",
+   "decisionDialog", "decTitle", "decSub", "decExplain", "decAttest", "decAttestText",
+   "decDateField", "decDate", "decNote", "decError", "decCancel", "decConfirm"].forEach(function (id) {
+    el[id] = document.getElementById(id);
+  });
+
+  function text(node, value) { node.textContent = value; }
+  function icon(name, size) {
+    return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-' + name + '"/></svg>';
+  }
+
+  function resetState() {
+    state.requests = REQUESTS.map(function (seed) {
+      var copy = JSON.parse(JSON.stringify(seed));
+      copy.state = "open";
+      copy.outcome = null;
+      return copy;
+    });
+    state.activeId = state.requests[0].id;
+    state.filter = "all";
+    state.clock = 0;
+    syncFilters();
+    render();
+  }
+
+  function active() {
+    return state.requests.filter(function (r) { return r.id === state.activeId; })[0];
+  }
+
+  /** Deterministic clock so a rehearsed walkthrough always reads the same. */
+  function nextTimestamp() {
+    state.clock += 4;
+    var base = 9 * 60 + 20 + state.clock;
+    var h = Math.floor(base / 60), m = base % 60;
+    return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+  }
+
+  /** Controls stay pending until lineage is resolved. */
+  function controlState(request, id) {
+    if (!request.scanned) return "pending";
+    return request.controls[id].state;
+  }
+
+  function counts(request) {
+    var out = { pass: 0, fail: 0, stale: 0, pending: 0 };
+    CONTROLS.forEach(function (c) { out[controlState(request, c.id)]++; });
+    return out;
+  }
+
+  /* ---------------------------------------------------------- list */
+  function visible() {
+    return state.requests.filter(function (r) {
+      if (state.filter === "open") return r.state === "open";
+      if (state.filter === "closed") return r.state !== "open";
+      return true;
+    });
+  }
+
+  function renderList() {
+    var list = visible();
+    el.requestList.textContent = "";
+
+    list.forEach(function (request) {
+      var li = document.createElement("li");
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "request";
+      btn.setAttribute("aria-current", request.id === state.activeId ? "true" : "false");
+
+      var top = document.createElement("span");
+      top.className = "rq-top";
+      var id = document.createElement("span");
+      id.className = "rq-id";
+      id.textContent = request.id;
+      var meta = STATE_LABELS[request.state];
+      var tag = document.createElement("span");
+      tag.className = "state " + meta.cls;
+      tag.textContent = meta.label;
+      top.appendChild(id);
+      top.appendChild(tag);
+
+      var title = document.createElement("span");
+      title.className = "rq-title";
+      title.textContent = request.title;
+
+      var owner = document.createElement("span");
+      owner.className = "rq-meta";
+      var c = counts(request);
+      owner.textContent = request.scanned
+        ? request.owner + " · " + c.fail + " failed, " + c.stale + " out of date"
+        : request.owner + " · lineage not resolved";
+
+      btn.appendChild(top);
+      btn.appendChild(title);
+      btn.appendChild(owner);
+      btn.addEventListener("click", function () {
+        state.activeId = request.id;
+        render();
+      });
+
+      li.appendChild(btn);
+      el.requestList.appendChild(li);
+    });
+
+    var open = state.requests.filter(function (r) { return r.state === "open"; }).length;
+    text(el.queueCount, open + " awaiting review");
+    el.listEmpty.hidden = list.length > 0;
+  }
+
+  function syncFilters() {
+    Array.prototype.forEach.call(document.querySelectorAll("[data-filter]"), function (chip) {
+      chip.setAttribute("aria-pressed", chip.dataset.filter === state.filter ? "true" : "false");
+    });
+  }
+
+  /* ------------------------------------------------------- case detail */
+  function renderHeader(request) {
+    text(el.caseHeading, request.title);
+    text(el.caseId, request.id);
+    text(el.caseSla, request.sla);
+
+    el.caseFacts.textContent = "";
+    [["Requesting team", request.owner, false],
+     ["Submitted", request.submitted, true],
+     ["Intended use", request.purpose, false],
+     ["Serving surface", request.surface, false]].forEach(function (fact) {
+      var wrap = document.createElement("div");
+      var dt = document.createElement("dt");
+      dt.textContent = fact[0];
+      var dd = document.createElement("dd");
+      dd.textContent = fact[1];
+      if (fact[2]) dd.className = "mono";
+      wrap.appendChild(dt);
+      wrap.appendChild(dd);
+      el.caseFacts.appendChild(wrap);
+    });
+  }
+
+  function renderLineage(request) {
+    el.lineageRoot.textContent = "";
+
+    if (!request.scanned) {
+      el.scanBox.hidden = false;
+      el.scanProgress.hidden = true;
+      el.runScan.disabled = false;
+      text(el.scanStatus, request.scan.idle);
+      return;
+    }
+
+    el.scanBox.hidden = !request.scan;
+    if (request.scan) {
+      el.scanProgress.hidden = true;
+      el.runScan.disabled = true;
+      text(el.scanStatus, request.scan.done);
+    }
+
+    var wrap = document.createElement("div");
+    wrap.className = "lineage-wrap";
+    var list = document.createElement("ol");
+    list.className = "lineage";
+
+    request.lineage.forEach(function (node) {
+      var li = document.createElement("li");
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "node" + (node.label === "none" ? " is-fail" : "");
+
+      var kind = document.createElement("span");
+      kind.className = "node-kind";
+      kind.textContent = node.kind;
+      var name = document.createElement("span");
+      name.className = "node-name";
+      name.textContent = node.name;
+      var role = document.createElement("span");
+      role.className = "node-role";
+      role.textContent = node.role;
+
+      btn.appendChild(kind);
+      btn.appendChild(name);
+      btn.appendChild(role);
+
+      if (node.label) {
+        var label = document.createElement("span");
+        var meta = LABELS[node.label];
+        label.className = "label " + meta.cls;
+        label.textContent = meta.text;
+        btn.appendChild(label);
+      }
+
+      btn.addEventListener("click", function () { openNode(node, request); });
+      li.appendChild(btn);
+      list.appendChild(li);
+    });
+
+    wrap.appendChild(list);
+    el.lineageRoot.appendChild(wrap);
+  }
+
+  function renderControls(request) {
+    el.controlList.textContent = "";
+    var c = counts(request);
+    text(el.controlSummary, request.scanned
+      ? c.pass + " met · " + c.fail + " failed · " + c.stale + " out of date"
+      : "awaiting lineage");
+
+    CONTROLS.forEach(function (control) {
+      var st = controlState(request, control.id);
+      var meta = CTL_META[st];
+      var detail = request.controls[control.id];
+      var li = document.createElement("li");
+
+      var body = document.createElement("span");
+      var name = document.createElement("span");
+      name.className = "ctl-name";
+      name.textContent = control.name;
+      var note = document.createElement("span");
+      note.className = "ctl-note";
+      note.textContent = request.scanned ? detail.note : control.why;
+      body.appendChild(name);
+      body.appendChild(note);
+      if (request.scanned) {
+        var src = document.createElement("span");
+        src.className = "ctl-src";
+        src.textContent = detail.src;
+        body.appendChild(src);
+      }
+
+      var status = document.createElement("span");
+      status.className = "st " + meta.cls;
+      status.innerHTML = icon(meta.icon, 14);
+      var statusText = document.createElement("span");
+      statusText.textContent = meta.label;
+      status.appendChild(statusText);
+
+      var spacer = document.createElement("span");
+
+      li.appendChild(body);
+      li.appendChild(status);
+      li.appendChild(spacer);
+      el.controlList.appendChild(li);
+    });
+  }
+
+  function renderAudit(request) {
+    el.auditList.textContent = "";
+    request.audit.forEach(function (entry) {
+      var li = document.createElement("li");
+      var time = document.createElement("time");
+      time.textContent = entry.time;
+      var body = document.createElement("span");
+      var actor = document.createElement("span");
+      actor.className = "actor " + (entry.who === "system" ? "is-system" : "is-human");
+      actor.textContent = entry.who === "system" ? "Platform — " : "N. Adeyemi — ";
+      var what = document.createElement("span");
+      what.textContent = entry.text;
+      body.appendChild(actor);
+      body.appendChild(what);
+      li.appendChild(time);
+      li.appendChild(body);
+      el.auditList.appendChild(li);
+    });
+  }
+
+  function renderDecision(request) {
+    el.decisionActions.textContent = "";
+    el.blockNotice.hidden = true;
+    el.outcomeNotice.hidden = true;
+
+    if (request.outcome) {
+      var done = ACTIONS[request.outcome];
+      el.outcomeNotice.hidden = false;
+      el.outcomeNotice.className = "notice " + done.notice;
+      el.outcomeText.textContent = "";
+      var main = document.createElement("span");
+      main.textContent = done.text(request);
+      var note = document.createElement("span");
+      note.className = "notice-note";
+      note.textContent = done.note + (request.decisionNote ? " Steward note: " + request.decisionNote : "");
+      el.outcomeText.appendChild(main);
+      el.outcomeText.appendChild(note);
+
+      addAction("Reopen request", false, function () { reopen(request); });
+      if (request.blocked) showBlocked(request);
+      return;
+    }
+
+    if (!request.scanned) {
+      addAction("Run lineage scan", true, function () { runScan(); });
+      return;
+    }
+
+    if (request.blocked) showBlocked(request);
+
+    request.actions.forEach(function (key) {
+      var action = ACTIONS[key];
+      addAction(action.label, action.primary, function () { openDecision(request, key); });
+    });
+  }
+
+  function showBlocked(request) {
+    el.blockNotice.hidden = false;
+    text(el.blockText, request.blocked);
+  }
+
+  function addAction(label, primary, handler) {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn" + (primary ? " btn-primary" : "");
+    btn.textContent = label;
+    btn.addEventListener("click", handler);
+    el.decisionActions.appendChild(btn);
+  }
+
+  function render() {
+    var request = active();
+    renderList();
+    if (!request) return;
+    renderHeader(request);
+    renderDecision(request);
+    renderLineage(request);
+    renderControls(request);
+    renderAudit(request);
+  }
+
+  /* ---------------------------------------------------------- node dialog */
+  function openNode(node, request) {
+    text(el.nodeTitle, node.name);
+    text(el.nodeSub, node.kind + " · " + request.id);
+
+    el.nodeMeta.textContent = "";
+    node.meta.forEach(function (pair) {
+      var wrap = document.createElement("div");
+      var dt = document.createElement("dt");
+      dt.textContent = pair[0];
+      var dd = document.createElement("dd");
+      dd.textContent = pair[1];
+      wrap.appendChild(dt);
+      wrap.appendChild(dd);
+      el.nodeMeta.appendChild(wrap);
+    });
+
+    text(el.nodeDetail, node.detail);
+    showDialog(el.nodeDialog);
+  }
+
+  /* ------------------------------------------------------ decision dialog */
+  function openDecision(request, key) {
+    var action = ACTIONS[key];
+    state.pending = { id: request.id, key: key };
+
+    text(el.decTitle, action.title);
+    text(el.decSub, request.id + " · " + request.title);
+    text(el.decExplain, action.explain);
+    text(el.decAttestText, action.attest);
+    text(el.decConfirm, action.confirm);
+    el.decAttest.checked = false;
+    el.decNote.value = "";
+    text(el.decError, "");
+
+    el.decDateField.hidden = !action.needsDate;
+    el.decDate.value = action.needsDate ? "2026-11-30" : "";
+
+    showDialog(el.decisionDialog);
+  }
+
+  function commitDecision() {
+    if (!state.pending) return;
+    var request = state.requests.filter(function (r) { return r.id === state.pending.id; })[0];
+    var key = state.pending.key;
+    var action = ACTIONS[key];
+
+    if (!el.decAttest.checked) {
+      text(el.decError, "Select the attestation to record this decision.");
+      el.decAttest.focus();
+      return;
+    }
+    if (action.needsDate && !el.decDate.value) {
+      text(el.decError, "Set a review date for the condition.");
+      el.decDate.focus();
+      return;
+    }
+
+    var note = el.decNote.value.trim();
+    request.outcome = key;
+    request.state = action.state;
+    request.decisionNote = note;
+    request.conditionDate = action.needsDate ? el.decDate.value : null;
+
+    request.audit = request.audit.concat([
+      { time: nextTimestamp(), who: "human", text: action.audit(request) + " Attestation recorded." }
+    ]);
+    if (note) {
+      request.audit = request.audit.concat([{ time: nextTimestamp(), who: "human", text: "Steward note: " + note }]);
+    }
+
+    state.pending = null;
+    closeDialog(el.decisionDialog);
+    render();
+    text(el.decisionStatus, action.title + " recorded for " + request.id + ".");
+  }
+
+  function reopen(request) {
+    request.outcome = null;
+    request.state = "open";
+    request.audit = request.audit.concat([
+      { time: nextTimestamp(), who: "human", text: "Request reopened; earlier entries remain in the trail." }
+    ]);
+    render();
+    text(el.decisionStatus, request.id + " reopened.");
+  }
+
+  /* -------------------------------------------------------- lineage scan */
+  function runScan() {
+    var request = active();
+    if (!request || request.scanned) return;
+
+    el.runScan.disabled = true;
+    el.scanProgress.hidden = false;
+    text(el.scanStatus, request.scan.working);
+
+    window.setTimeout(function () {
+      request.scanned = true;
+      request.audit = request.audit.concat([
+        { time: nextTimestamp(), who: "human", text: request.scan.audit }
+      ]);
+      el.scanProgress.hidden = true;
+      render();
+      text(el.decisionStatus, request.scan.done);
+    }, 900);
+  }
+
+  /* ----------------------------------------------------------- dialogs */
+  function showDialog(dialog) {
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
+  }
+  function closeDialog(dialog) {
+    if (typeof dialog.close === "function") dialog.close();
+    else dialog.removeAttribute("open");
+  }
+
+  /* ------------------------------------------------------------ events */
+  Array.prototype.forEach.call(document.querySelectorAll("[data-filter]"), function (chip) {
+    chip.addEventListener("click", function () {
+      state.filter = chip.dataset.filter;
+      syncFilters();
+      renderList();
+    });
+  });
+
+  el.runScan.addEventListener("click", runScan);
+  el.nodeClose.addEventListener("click", function () { closeDialog(el.nodeDialog); });
+  el.nodeDone.addEventListener("click", function () { closeDialog(el.nodeDialog); });
+  el.decCancel.addEventListener("click", function () {
+    state.pending = null;
+    closeDialog(el.decisionDialog);
+  });
+  el.decConfirm.addEventListener("click", commitDecision);
+  el.decAttest.addEventListener("change", function () {
+    if (el.decAttest.checked) text(el.decError, "");
+  });
+  el.resetDemo.addEventListener("click", function () {
+    resetState();
+    text(el.decisionStatus, "Demo data restored.");
+  });
+
+  resetState();
+})();
+</script>
+</body>
+</html>
