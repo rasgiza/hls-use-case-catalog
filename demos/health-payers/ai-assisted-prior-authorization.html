@@ -1,0 +1,1373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Utilization Review Console — AI-Assisted Prior Authorization (illustrative demo)</title>
+<style>
+  :root {
+    --ink: #11171e;
+    --ink-2: #47535f;
+    --ink-3: #6b7885;
+    --surface: #ffffff;
+    --canvas: #eceff4;
+    --rail: #f6f8fa;
+    --line: #d2dae3;
+    --line-soft: #e4e9ef;
+    --accent: #0f5b73;
+    --accent-ink: #0b475b;
+    --met: #1b6a4a;
+    --met-bg: #e6f3ec;
+    --warn: #8a5300;
+    --warn-bg: #fbf0dd;
+    --stop: #98292b;
+    --stop-bg: #fbeaea;
+    --focus: #0a5ad6;
+    --radius: 6px;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  :where(button, input, select, textarea):focus-visible,
+  :where(li) > button:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  /* ---------------------------------------------------------- app bar */
+  .appbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 18px;
+    padding: 10px 18px;
+    background: var(--ink);
+    color: #f2f5f8;
+    border-bottom: 3px solid var(--accent);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+  .brand svg { flex: none; }
+  .brand-name { font-weight: 650; letter-spacing: .1px; }
+  .brand-sub { display: block; font-size: 12px; font-weight: 400; color: #9fb0bd; }
+
+  .disclosure {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 10px;
+    border: 1px solid #5d7c88;
+    border-radius: 999px;
+    background: #123642;
+    color: #cfe6ee;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .who { font-size: 13px; color: #b9c7d2; text-align: right; }
+  .who b { color: #f2f5f8; font-weight: 600; }
+
+  /* ---------------------------------------------------------- buttons */
+  .btn {
+    font: inherit;
+    font-size: 14px;
+    font-weight: 550;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 8px 13px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 38px;
+  }
+  .btn:hover:not(:disabled) { border-color: #a9b6c3; }
+  .btn:disabled { cursor: not-allowed; opacity: .55; }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-ink); border-color: var(--accent-ink); }
+  .btn-ghost-light {
+    background: transparent;
+    color: #dbe6ec;
+    border-color: #4a6672;
+  }
+  .btn-ghost-light:hover { background: #1c2c35; }
+  .btn-link {
+    font: inherit;
+    font-size: 13px;
+    color: var(--accent-ink);
+    background: none;
+    border: 0;
+    border-bottom: 1px solid #9cc3cf;
+    padding: 0 0 1px;
+    cursor: pointer;
+  }
+  .btn-link:hover { border-bottom-color: var(--accent); }
+
+  /* ---------------------------------------------------------- layout */
+  .workbench {
+    display: grid;
+    grid-template-columns: minmax(250px, 300px) minmax(0, 1fr) minmax(260px, 320px);
+    gap: 1px;
+    background: var(--line);
+    min-height: calc(100vh - 128px);
+  }
+  .pane { background: var(--rail); min-width: 0; }
+  .pane-case { background: var(--canvas); }
+
+  .pane-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 13px 15px 9px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .pane-head h2 { margin: 0; font-size: 13px; letter-spacing: .3px; text-transform: none; color: var(--ink-2); font-weight: 650; }
+  .pane-head .count { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+  /* ---------------------------------------------------------- queue */
+  .filters { display: flex; gap: 6px; padding: 10px 15px; flex-wrap: wrap; }
+  .chip {
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 550;
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-2);
+    cursor: pointer;
+    min-height: 32px;
+  }
+  .chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+  .queue { list-style: none; margin: 0; padding: 0 10px 14px; display: grid; gap: 7px; }
+  .queue-item { width: 100%; text-align: left; font: inherit; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--line);
+    border-radius: var(--radius); padding: 10px 11px; display: grid; gap: 5px; }
+  .queue-item:hover { border-color: #a9b6c3; }
+  .queue-item[aria-current="true"] { border-color: var(--accent); border-left-color: var(--accent); background: #f2fafc; }
+  .qi-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .qi-id { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+  .qi-service { font-weight: 600; font-size: 14px; line-height: 1.35; }
+  .qi-meta { font-size: 12.5px; color: var(--ink-3); display: flex; flex-wrap: wrap; gap: 4px 10px; }
+  .queue-empty { padding: 14px 15px; color: var(--ink-3); font-size: 13.5px; }
+
+  .tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11.5px; font-weight: 650; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  .tag-review { background: var(--warn-bg); color: var(--warn); border-color: #e4c98f; }
+  .tag-escalated { background: #eceef7; color: #3b3f86; border-color: #c2c7e6; }
+  .tag-approved { background: var(--met-bg); color: var(--met); border-color: #a9d4bf; }
+  .tag-pended { background: #eef1f4; color: var(--ink-2); border-color: var(--line); }
+
+  /* ---------------------------------------------------------- case */
+  .case-scroll { padding: 16px; display: grid; gap: 14px; align-content: start; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+  .card-head {
+    display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; justify-content: space-between;
+    padding: 12px 15px; border-bottom: 1px solid var(--line-soft);
+  }
+  .card-head h2, .card-head h3 { margin: 0; font-size: 14.5px; font-weight: 650; }
+  .card-body { padding: 14px 15px; }
+
+  .case-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+  .case-title h2 { margin: 0; font-size: 19px; line-height: 1.25; }
+  .case-code { font-family: var(--mono); font-size: 13px; color: var(--ink-2); }
+
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 11px 16px; margin: 0; }
+  .facts > div { min-width: 0; }
+  .facts dt { font-size: 12px; color: var(--ink-3); margin-bottom: 2px; }
+  .facts dd { margin: 0; font-size: 14px; }
+  .facts .mono { font-family: var(--mono); font-size: 13px; }
+
+  .sla { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+  .sla-bar { width: 84px; height: 6px; border-radius: 3px; background: #e2e7ed; overflow: hidden; flex: none; }
+  .sla-fill { display: block; height: 100%; background: var(--warn); }
+
+  /* recommendation */
+  .reco { display: grid; gap: 10px; }
+  .reco-flag {
+    display: flex; gap: 9px; align-items: flex-start;
+    padding: 9px 11px; border-radius: var(--radius);
+    background: #f1f4f8; border: 1px solid var(--line-soft); font-size: 13px; color: var(--ink-2);
+  }
+  .reco-flag svg { flex: none; margin-top: 1px; }
+  .reco-text { font-size: 15px; }
+  .evidence-strength { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+  .dots { display: inline-flex; gap: 3px; }
+  .dot { width: 9px; height: 9px; border-radius: 2px; background: #d8dee6; }
+  .dot.on-met { background: var(--met); }
+  .dot.on-warn { background: var(--warn); }
+  .dot.on-stop { background: var(--stop); }
+
+  /* criteria table */
+  .criteria { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .criteria caption { text-align: left; font-size: 12.5px; color: var(--ink-3); padding: 0 0 8px; }
+  .criteria th, .criteria td { text-align: left; padding: 9px 10px; border-top: 1px solid var(--line-soft); vertical-align: top; }
+  .criteria thead th { border-top: 0; font-size: 12px; color: var(--ink-3); font-weight: 600; padding-top: 0; }
+  .criteria tbody tr:hover { background: #f8fafb; }
+  .crit-name { font-weight: 550; }
+  .crit-src { font-size: 12.5px; color: var(--ink-3); margin-top: 3px; }
+  .status-cell { white-space: nowrap; }
+  .st { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; }
+  .st-met { color: var(--met); }
+  .st-not { color: var(--stop); }
+  .st-ins { color: var(--warn); }
+
+  /* retrieval */
+  .retrieval { display: grid; gap: 9px; }
+  .retrieval progress { width: 100%; max-width: 260px; height: 6px; }
+  .status-line { font-size: 13.5px; color: var(--ink-2); min-height: 20px; }
+
+  /* decision dock */
+  .dock { position: sticky; bottom: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+  .dock-body { padding: 13px 15px; display: grid; gap: 11px; }
+  .dock-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+  .blocked {
+    display: flex; gap: 9px; align-items: flex-start; font-size: 13.5px;
+    background: var(--stop-bg); border: 1px solid #e3b9b9; color: #7d2325;
+    padding: 9px 11px; border-radius: var(--radius);
+  }
+  .blocked svg { flex: none; margin-top: 1px; }
+  .decided {
+    display: flex; gap: 9px; align-items: flex-start; font-size: 14px;
+    background: var(--met-bg); border: 1px solid #a9d4bf; color: #145239;
+    padding: 11px 12px; border-radius: var(--radius);
+  }
+  .decided.is-escalated { background: #eceef7; border-color: #c2c7e6; color: #32367a; }
+  .decided.is-pended { background: #eef1f4; border-color: var(--line); color: var(--ink-2); }
+  .decided svg { flex: none; margin-top: 2px; }
+  .decided-note { display: block; margin-top: 3px; font-size: 13px; opacity: .92; }
+
+  /* ---------------------------------------------------------- trace + audit */
+  .pane-side { display: grid; grid-template-rows: auto auto minmax(0, 1fr); }
+  .trace { list-style: none; margin: 0; padding: 12px 15px; display: grid; gap: 0; }
+  .trace li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; padding-bottom: 13px; position: relative; }
+  .trace li:not(:last-child)::before {
+    content: ""; position: absolute; left: 9px; top: 18px; bottom: 0; width: 2px; background: var(--line);
+  }
+  .trace-dot {
+    width: 20px; height: 20px; border-radius: 50%; background: var(--met-bg); color: var(--met);
+    display: grid; place-items: center; z-index: 1; border: 1px solid #a9d4bf;
+  }
+  .trace-dot.is-gate { background: var(--warn-bg); color: var(--warn); border-color: #e4c98f; }
+  .trace-dot.is-blocked { background: var(--stop-bg); color: var(--stop); border-color: #e3b9b9; }
+  .trace-t { font-size: 13.5px; font-weight: 600; }
+  .trace-m { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+  .trace-svc {
+    display: inline-block; margin-top: 4px; font-size: 11.5px; color: var(--accent-ink);
+    background: #eaf4f7; border: 1px solid #bfdde6; border-radius: 3px; padding: 1px 6px;
+  }
+
+  .audit { list-style: none; margin: 0; padding: 10px 15px 16px; display: grid; gap: 9px; font-size: 13px; }
+  .audit li { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 9px; }
+  .audit time { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+  .audit .who-tag { font-weight: 600; }
+  .audit .who-tag.is-system { color: var(--ink-2); }
+  .audit .who-tag.is-human { color: var(--accent-ink); }
+
+  /* ---------------------------------------------------------- dialog */
+  dialog {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0;
+    width: min(620px, calc(100vw - 32px));
+    color: var(--ink);
+    box-shadow: 0 18px 44px rgba(12, 22, 32, .26);
+  }
+  dialog::backdrop { background: rgba(14, 22, 30, .45); }
+  .dlg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 15px 17px; border-bottom: 1px solid var(--line-soft); }
+  .dlg-head h2 { margin: 0; font-size: 16px; }
+  .dlg-sub { display: block; margin-top: 3px; font-size: 12.5px; color: var(--ink-3); }
+  .dlg-body { padding: 15px 17px; display: grid; gap: 12px; }
+  .dlg-foot { display: flex; flex-wrap: wrap; gap: 9px; justify-content: flex-end; padding: 13px 17px; border-top: 1px solid var(--line-soft); background: var(--rail); }
+  .excerpt {
+    font-size: 14px; line-height: 1.6; background: var(--rail);
+    border: 1px solid var(--line-soft); border-left: 3px solid var(--accent);
+    padding: 12px 13px; border-radius: 0 var(--radius) var(--radius) 0; white-space: pre-wrap;
+  }
+  .src-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 9px 14px; font-size: 13px; }
+  .src-meta dt { color: var(--ink-3); font-size: 12px; }
+  .src-meta dd { margin: 0; }
+  .safety-note { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; color: var(--ink-3); }
+  .safety-note svg { flex: none; margin-top: 1px; }
+
+  .attest { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; padding: 11px 12px; background: var(--rail); border: 1px solid var(--line-soft); border-radius: var(--radius); }
+  .attest input { width: 18px; height: 18px; margin: 1px 0 0; flex: none; }
+  .field { display: grid; gap: 5px; }
+  .field label { font-size: 13px; color: var(--ink-2); font-weight: 550; }
+  .field textarea {
+    font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid var(--line);
+    border-radius: var(--radius); resize: vertical; min-height: 68px; color: var(--ink); background: var(--surface);
+  }
+  .dlg-error { font-size: 13px; color: var(--stop); min-height: 18px; }
+
+  /* ---------------------------------------------------------- footer */
+  .footer {
+    display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center;
+    padding: 11px 18px; background: var(--ink); color: #9fb0bd; font-size: 12.5px;
+  }
+  .footer .built { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .svc-chip { border: 1px solid #3f5b67; border-radius: 3px; padding: 2px 7px; color: #cfe0e8; }
+  .claim { margin-left: auto; max-width: 52ch; }
+  .claim b { color: #dbe6ec; font-weight: 600; }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  /* ---------------------------------------------------------- responsive */
+  @media (max-width: 1180px) {
+    .workbench { grid-template-columns: minmax(230px, 280px) minmax(0, 1fr); }
+    .pane-side { grid-column: 1 / -1; grid-template-rows: auto auto auto; }
+  }
+  @media (max-width: 800px) {
+    .workbench { grid-template-columns: minmax(0, 1fr); }
+    .pane-side { grid-column: auto; }
+    .claim { margin-left: 0; }
+    .who { text-align: left; }
+    .case-scroll { padding: 13px; }
+    .criteria thead { display: none; }
+    .criteria tbody tr { display: grid; gap: 4px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
+    .criteria td { border-top: 0; padding: 0 2px; }
+    .dock { position: static; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<svg class="sr-only" aria-hidden="true" focusable="false">
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="M3 8.5l3.2 3.2L13 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-x" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 16 16"><path d="M8 2.5l6 11H2l6-11z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 6.6v3.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="11.7" r=".9" fill="currentColor"/></symbol>
+  <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="4.9" r=".9" fill="currentColor"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 16 16"><path d="M6 4v8M10 4v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 16 16"><path d="M8 1.8l5 1.9v4c0 3.1-2.1 5.4-5 6.5-2.9-1.1-5-3.4-5-6.5v-4l5-1.9z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+</svg>
+
+<header class="appbar">
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 16 16" aria-hidden="true" style="color:#5fc0d8"><use href="#i-shield"/></svg>
+    <span class="brand-name">Utilization Review Console
+      <span class="brand-sub">Cascadia Mutual Health Plan &middot; fictional payer</span>
+    </span>
+  </div>
+
+  <p class="disclosure">
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-info"/></svg>
+    Illustrative demo &middot; synthetic data
+  </p>
+
+  <p class="who">
+    <b>S. Alvarado, RN</b><span class="sr-only">, </span><br>
+    UM reviewer &middot; license on file
+  </p>
+
+  <button type="button" class="btn btn-ghost-light" id="resetDemo">Restore demo data</button>
+</header>
+
+<main class="workbench">
+
+  <!-- ======================================================= queue -->
+  <section class="pane" aria-labelledby="queueHeading">
+    <div class="pane-head">
+      <h2 id="queueHeading">Authorization queue</h2>
+      <span class="count" id="queueCount"></span>
+    </div>
+
+    <div class="filters" role="group" aria-label="Filter queue by status">
+      <button type="button" class="chip" data-filter="all" aria-pressed="true">All</button>
+      <button type="button" class="chip" data-filter="open" aria-pressed="false">Needs review</button>
+      <button type="button" class="chip" data-filter="closed" aria-pressed="false">Actioned</button>
+    </div>
+
+    <ul class="queue" id="queueList"></ul>
+    <p class="queue-empty" id="queueEmpty" hidden>No requests match this filter.</p>
+  </section>
+
+  <!-- ======================================================= case -->
+  <section class="pane pane-case" aria-labelledby="caseHeading">
+    <div class="case-scroll">
+
+      <article class="card">
+        <div class="card-head">
+          <div class="case-title">
+            <h2 id="caseHeading">Case</h2>
+            <span class="case-code" id="caseCode"></span>
+          </div>
+          <p class="sla" id="caseSla"></p>
+        </div>
+        <div class="card-body">
+          <dl class="facts" id="caseFacts"></dl>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h3>Draft recommendation</h3>
+          <span class="count" id="policyRef"></span>
+        </div>
+        <div class="card-body reco">
+          <p class="reco-flag">
+            <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-info"/></svg>
+            <span>Model-generated draft for reviewer use. It is not a coverage decision and no authorization or denial is issued without the actions below.</span>
+          </p>
+          <p class="reco-text" id="recoText"></p>
+          <p class="evidence-strength" id="evidenceStrength"></p>
+          <p><button type="button" class="btn-link" id="viewPolicy">View the medical policy this draft applied</button></p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h3>Criteria worksheet</h3>
+          <span class="count" id="critSummary"></span>
+        </div>
+        <div class="card-body">
+          <table class="criteria">
+            <caption>Each line shows the source the draft relied on. Open a source to read the original text before deciding.</caption>
+            <thead>
+              <tr><th scope="col">Policy criterion</th><th scope="col">Finding</th><th scope="col">Source</th></tr>
+            </thead>
+            <tbody id="critBody"></tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="card" id="retrievalCard" hidden>
+        <div class="card-head"><h3>Evidence retrieval</h3></div>
+        <div class="card-body retrieval">
+          <p class="status-line" id="retrievalStatus" role="status"></p>
+          <progress id="retrievalProgress" hidden aria-label="Searching connected sources"></progress>
+          <p><button type="button" class="btn" id="rerunRetrieval">Re-run evidence retrieval</button></p>
+        </div>
+      </article>
+
+      <section class="dock" aria-labelledby="dockHeading">
+        <div class="card-head"><h3 id="dockHeading">Reviewer decision</h3></div>
+        <div class="dock-body">
+          <p class="blocked" id="dockBlocked" hidden>
+            <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-alert"/></svg>
+            <span id="dockBlockedText"></span>
+          </p>
+          <p class="decided" id="dockDecided" hidden>
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-check"/></svg>
+            <span id="dockDecidedText"></span>
+          </p>
+          <div class="dock-actions" id="dockActions"></div>
+          <p class="status-line" id="dockHint" hidden></p>
+          <p class="status-line sr-only" id="decisionStatus" role="status"></p>
+        </div>
+      </section>
+
+    </div>
+  </section>
+
+  <!-- ======================================================= trace + audit -->
+  <section class="pane pane-side" aria-labelledby="traceHeading">
+    <div class="pane-head">
+      <h2 id="traceHeading">Agent run</h2>
+      <span class="count" id="traceCount"></span>
+    </div>
+    <ol class="trace" id="traceList"></ol>
+
+    <div class="pane-head">
+      <h2 id="auditHeading">Audit trail</h2>
+      <span class="count">append-only</span>
+    </div>
+    <ul class="audit" id="auditList" aria-labelledby="auditHeading"></ul>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <span class="built">
+    Built on
+    <span class="svc-chip">Azure OpenAI in Azure AI Foundry Models</span>
+    <span class="svc-chip">Azure AI Search</span>
+    <span class="svc-chip">Azure Machine Learning</span>
+    <span class="svc-chip">Azure Logic Apps</span>
+  </span>
+  <span class="claim">
+    FY27 HLS catalog value claim for this use case: <b>authorization turnaround time down 40&ndash;60%, manual review effort down, provider abrasion down, compliance with prior-auth timelines up.</b>
+    All cases, members, providers, and identifiers on this screen are fictional.
+  </span>
+</footer>
+
+<!-- ======================================================= evidence dialog -->
+<dialog id="evidenceDialog" aria-labelledby="evTitle">
+  <div class="dlg-head">
+    <div>
+      <h2 id="evTitle"></h2>
+      <span class="dlg-sub" id="evSub"></span>
+    </div>
+    <button type="button" class="btn" id="evClose" aria-label="Close source">
+      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-x"/></svg>
+    </button>
+  </div>
+  <div class="dlg-body">
+    <dl class="src-meta" id="evMeta"></dl>
+    <p class="excerpt" id="evExcerpt"></p>
+    <p class="safety-note">
+      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-shield"/></svg>
+      Retrieved document text is handled as data, never as instructions to the model. Source excerpts are shown unedited so the reviewer can confirm the draft against the record.
+    </p>
+  </div>
+  <div class="dlg-foot">
+    <button type="button" class="btn btn-primary" id="evDone">Back to case</button>
+  </div>
+</dialog>
+
+<!-- ======================================================= decision dialog -->
+<dialog id="decisionDialog" aria-labelledby="decTitle">
+  <form method="dialog" id="decisionForm">
+    <div class="dlg-head">
+      <div>
+        <h2 id="decTitle"></h2>
+        <span class="dlg-sub" id="decSub"></span>
+      </div>
+    </div>
+    <div class="dlg-body">
+      <p id="decExplain" style="margin:0;font-size:14px;"></p>
+      <label class="attest">
+        <input type="checkbox" id="decAttest">
+        <span id="decAttestText"></span>
+      </label>
+      <div class="field">
+        <label for="decNote">Reviewer note <span style="font-weight:400;color:var(--ink-3)">(recorded in the audit trail)</span></label>
+        <textarea id="decNote" placeholder="Optional context for this decision"></textarea>
+      </div>
+      <p class="dlg-error" id="decError" role="alert"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" id="decCancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="decConfirm"></button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+   * Fixture data. Every member, provider, identifier, document, and date
+   * below is invented for demonstration only.
+   * ---------------------------------------------------------------- */
+  var SOURCES = {
+    noteImaging: {
+      title: "Clinical note — Cascadia Spine & Sports Medicine",
+      kind: "Office visit note",
+      date: "2026-08-14",
+      author: "L. Moreau, MD (sample)",
+      retrieval: "Azure AI Search · clinical document index",
+      text: "Subjective: 52-year-old with low back pain radiating to the left thigh, onset 5 months ago.\nCompleted 8 weeks of supervised physical therapy (2 sessions/week, 2026-06-16 through 2026-08-08) plus a 4-week NSAID trial. Pain remains 6/10 and limits standing beyond 15 minutes.\n\nObjective: Negative straight-leg raise bilaterally. No saddle anesthesia, no bowel or bladder dysfunction, no progressive motor deficit. Strength 5/5 throughout.\n\nAssessment/Plan: Persistent radicular pain after documented conservative therapy. Requesting MRI lumbar spine without contrast to evaluate for structural cause."
+    },
+    claimsImaging: {
+      title: "Claims history extract",
+      kind: "Administrative record",
+      date: "retrieved 2026-09-16",
+      author: "Cascadia claims system (sample)",
+      retrieval: "Azure AI Search · claims index",
+      text: "Advanced imaging, lumbar region, rolling 12 months:\n  — No MRI lumbar spine on file.\n  — No CT lumbar spine on file.\n  — Radiograph lumbar spine 2026-06-02, paid.\n\nNo duplicate advanced imaging identified for this member and body region."
+    },
+    networkImaging: {
+      title: "Provider contract record",
+      kind: "Network status",
+      date: "effective 2026-01-01",
+      author: "Cascadia network operations (sample)",
+      retrieval: "Azure AI Search · provider index",
+      text: "Ordering provider: L. Moreau, MD — sample NPI 90-DEMO-4471.\nParticipation: in network, Gold PPO, effective 2026-01-01 through 2026-12-31.\nRendering facility: Cascadia Imaging — Riverside, in network."
+    },
+    policyImaging: {
+      title: "Medical policy CMP-IMG-014 — advanced imaging, lumbar spine",
+      kind: "Medical policy",
+      date: "effective 2026-07-01",
+      author: "Cascadia medical policy committee (sample)",
+      retrieval: "Azure AI Search · policy index",
+      text: "Advanced imaging of the lumbar spine is considered medically necessary when ALL of the following are documented:\n  1. At least 6 weeks of conservative therapy, unless red-flag findings are present.\n  2. No red-flag neurologic findings requiring urgent imaging.\n  3. No duplicate advanced imaging of the same region within 12 months.\n  4. Ordering provider participates in the member's network.\n\nRequests that do not meet all criteria are referred to a medical director. Automated systems may not issue an adverse determination."
+    },
+    noteFusion: {
+      title: "Clinical note — Cascadia Orthopaedic Associates",
+      kind: "Surgical consultation",
+      date: "2026-09-02",
+      author: "P. Whitfield, MD (sample)",
+      retrieval: "Azure AI Search · clinical document index",
+      text: "Subjective: Axial low back pain, 5 weeks of supervised physical therapy completed to date. Home exercise program ongoing.\n\nObjective: No neurologic deficit. Gait normal.\n\nAssessment/Plan: Degenerative disc disease L4-L5. Discussed surgical options; patient requests fusion. Conservative care remains in progress."
+    },
+    imagingFusion: {
+      title: "Imaging report — flexion/extension radiographs",
+      kind: "Diagnostic report",
+      date: "2026-08-28",
+      author: "Cascadia Imaging — Riverside (sample)",
+      retrieval: "Azure AI Search · clinical document index",
+      text: "Findings: Disc space narrowing at L4-L5 with endplate changes.\nNo translational motion on flexion/extension views. No spondylolisthesis. No evidence of segmental instability.\n\nImpression: Degenerative change without demonstrable instability."
+    },
+    intakeFusion: {
+      title: "Member intake questionnaire",
+      kind: "Member-reported",
+      date: "2026-09-02",
+      author: "Member portal submission (sample)",
+      retrieval: "Azure AI Search · intake index",
+      text: "Tobacco use: none in the past 14 months. Cessation program completed 2025-07.\nHeight/weight recorded. No anticoagulant therapy reported."
+    },
+    policyFusion: {
+      title: "Medical policy CMP-SURG-022 — lumbar fusion",
+      kind: "Medical policy",
+      date: "effective 2026-04-01",
+      author: "Cascadia medical policy committee (sample)",
+      retrieval: "Azure AI Search · policy index",
+      text: "Lumbar fusion for degenerative disc disease requires ALL of the following:\n  1. At least 12 weeks of conservative care within the prior 12 months.\n  2. Documented segmental instability or deformity on imaging.\n  3. Failed injection therapy, or documented contraindication.\n  4. Tobacco-free status documented.\n\nIf any criterion is unmet, the request must be referred to a medical director for individual consideration. Automated systems may not issue an adverse determination."
+    },
+    referralInfusion: {
+      title: "Referral form — home infusion therapy",
+      kind: "Referral",
+      date: "2026-09-15",
+      author: "Cascadia Internal Medicine (sample)",
+      retrieval: "Azure AI Search · intake index",
+      text: "Requesting home infusion of intravenous antibiotic therapy, 14-day course.\nDiagnosis documented and on the covered condition list.\nHome setting assessed as appropriate; member has reliable access and refrigeration.\n\n\"Prior outpatient therapy trial summarized in the attached discharge packet.\" — attachment not received with this referral."
+    },
+    policyInfusion: {
+      title: "Medical policy CMP-HIT-009 — home infusion therapy",
+      kind: "Medical policy",
+      date: "effective 2026-05-01",
+      author: "Cascadia medical policy committee (sample)",
+      retrieval: "Azure AI Search · policy index",
+      text: "Home infusion therapy requires ALL of the following:\n  1. Diagnosis appears on the covered condition list.\n  2. Home setting assessed as clinically appropriate.\n  3. Documented trial of prior therapy, where applicable to the diagnosis.\n  4. Caregiver or self-administration capability confirmed.\n\nWhere required documentation is absent, the request is pended and additional clinical information is requested from the provider. The request may not be denied for missing documentation without medical director review."
+    }
+  };
+
+  var SEED = [
+    {
+      id: "PA-48210",
+      service: "MRI lumbar spine without contrast",
+      code: "72148",
+      member: "R. Okafor",
+      memberId: "MBR-55218-04",
+      plan: "Gold PPO",
+      provider: "L. Moreau, MD",
+      providerId: "sample NPI 90-DEMO-4471",
+      facility: "Cascadia Imaging — Riverside",
+      received: "2026-09-16 09:12",
+      slaLabel: "13 h 40 m left of a 72 h standard-review clock",
+      slaPct: 42,
+      policy: SOURCES.policyImaging,
+      policyRef: "CMP-IMG-014",
+      outcome: "meets",
+      reco: "All four policy criteria are supported by dated sources in the record. The draft is eligible for approval once a reviewer confirms it.",
+      strength: { level: "met", label: "4 of 4 criteria supported by dated sources" },
+      criteria: [
+        { name: "Conservative therapy at least 6 weeks", status: "met", finding: "8 weeks of supervised physical therapy documented", src: SOURCES.noteImaging, srcLabel: "Clinical note, 2026-08-14" },
+        { name: "No red-flag neurologic findings", status: "met", finding: "Negative red-flag screen recorded at the visit", src: SOURCES.noteImaging, srcLabel: "Clinical note, 2026-08-14" },
+        { name: "No duplicate advanced imaging in 12 months", status: "met", finding: "No prior lumbar MRI or CT on file", src: SOURCES.claimsImaging, srcLabel: "Claims history, retrieved 2026-09-16" },
+        { name: "Ordering provider in network", status: "met", finding: "In network for Gold PPO through 2026-12-31", src: SOURCES.networkImaging, srcLabel: "Provider contract record" }
+      ],
+      trace: [
+        { t: "Request received", m: "278 intake parsed; member, code, and provider validated.", svc: "Azure Logic Apps", state: "done" },
+        { t: "Benefit checked", m: "Gold PPO requires prior authorization for advanced imaging.", svc: "Azure Logic Apps", state: "done" },
+        { t: "Policy and records retrieved", m: "4 documents retrieved and linked to criteria.", svc: "Azure AI Search", state: "done" },
+        { t: "Criteria worksheet drafted", m: "Draft findings generated with citation to each source.", svc: "Azure OpenAI in Azure AI Foundry Models", state: "done" },
+        { t: "Auto-approval eligibility scored", m: "Scored eligible for reviewer-confirmed approval.", svc: "Azure Machine Learning", state: "done" },
+        { t: "Held for reviewer confirmation", m: "No determination is issued until a reviewer acts.", svc: "Human-in-the-loop gate", state: "gate" }
+      ],
+      actions: ["approve", "escalate"],
+      audit: [
+        { time: "09:12", who: "system", text: "Request PA-48210 received and validated." },
+        { time: "09:13", who: "system", text: "Draft recommendation generated from 4 retrieved sources. Draft only — not a determination." },
+        { time: "09:13", who: "system", text: "Held at reviewer gate." }
+      ]
+    },
+    {
+      id: "PA-48211",
+      service: "Lumbar fusion, single level",
+      code: "22630",
+      member: "D. Halvorsen",
+      memberId: "MBR-41907-11",
+      plan: "Gold PPO",
+      provider: "P. Whitfield, MD",
+      providerId: "sample NPI 90-DEMO-6620",
+      facility: "Cascadia Orthopaedic Associates",
+      received: "2026-09-16 08:41",
+      slaLabel: "9 h 05 m left of a 72 h standard-review clock",
+      slaPct: 64,
+      policy: SOURCES.policyFusion,
+      policyRef: "CMP-SURG-022",
+      outcome: "not-met",
+      reco: "Two criteria are contradicted by the record and one has no supporting document. Policy requires individual consideration by a medical director; this system cannot issue an adverse determination.",
+      strength: { level: "stop", label: "1 of 4 criteria supported; 2 contradicted, 1 unsupported" },
+      criteria: [
+        { name: "Conservative care at least 12 weeks", status: "not", finding: "5 weeks documented; care still in progress", src: SOURCES.noteFusion, srcLabel: "Surgical consultation, 2026-09-02" },
+        { name: "Documented instability or deformity", status: "not", finding: "No segmental instability on flexion/extension views", src: SOURCES.imagingFusion, srcLabel: "Imaging report, 2026-08-28" },
+        { name: "Failed injection therapy", status: "ins", finding: "No record of injection therapy located", src: null, srcLabel: "No source document found" },
+        { name: "Tobacco-free status documented", status: "met", finding: "Tobacco-free 14 months; cessation program completed", src: SOURCES.intakeFusion, srcLabel: "Member intake, 2026-09-02" }
+      ],
+      trace: [
+        { t: "Request received", m: "278 intake parsed; member, code, and provider validated.", svc: "Azure Logic Apps", state: "done" },
+        { t: "Benefit checked", m: "Gold PPO requires prior authorization for this procedure.", svc: "Azure Logic Apps", state: "done" },
+        { t: "Policy and records retrieved", m: "5 documents retrieved and linked to criteria.", svc: "Azure AI Search", state: "done" },
+        { t: "Criteria worksheet drafted", m: "Two criteria contradicted by the retrieved record.", svc: "Azure OpenAI in Azure AI Foundry Models", state: "done" },
+        { t: "Auto-approval eligibility scored", m: "Not eligible for automated approval.", svc: "Azure Machine Learning", state: "done" },
+        { t: "Routing required", m: "Adverse determinations are reserved for a medical director.", svc: "Human-in-the-loop gate", state: "blocked" }
+      ],
+      actions: ["escalate"],
+      blocked: "Approval is unavailable because two policy criteria are contradicted by the record. A denial cannot be issued here either — under CMP-SURG-022 an adverse determination requires a medical director. Route the case for individual consideration.",
+      audit: [
+        { time: "08:41", who: "system", text: "Request PA-48211 received and validated." },
+        { time: "08:42", who: "system", text: "Draft recommendation generated from 5 retrieved sources. Draft only — not a determination." },
+        { time: "08:42", who: "system", text: "Automated approval withheld; adverse determination blocked by policy." }
+      ]
+    },
+    {
+      id: "PA-48212",
+      service: "Home infusion therapy, 14-day course",
+      code: "S9500",
+      member: "T. Bergstrom",
+      memberId: "MBR-73340-02",
+      plan: "Silver HMO",
+      provider: "A. Ibarra, MD",
+      providerId: "sample NPI 90-DEMO-3318",
+      facility: "Cascadia Internal Medicine",
+      received: "2026-09-16 09:58",
+      slaLabel: "21 h 30 m left of a 72 h standard-review clock",
+      slaPct: 24,
+      policy: SOURCES.policyInfusion,
+      policyRef: "CMP-HIT-009",
+      outcome: "incomplete",
+      reco: "Two criteria are supported. The referral cites a discharge packet that was never received, so prior therapy and caregiver capability cannot be confirmed from the record.",
+      strength: { level: "warn", label: "2 of 4 criteria supported; 2 awaiting documentation" },
+      criteria: [
+        { name: "Diagnosis on covered condition list", status: "met", finding: "Diagnosis documented and covered", src: SOURCES.referralInfusion, srcLabel: "Referral form, 2026-09-15" },
+        { name: "Home setting clinically appropriate", status: "met", finding: "Home assessment recorded on the referral", src: SOURCES.referralInfusion, srcLabel: "Referral form, 2026-09-15" },
+        { name: "Prior therapy trial documented", status: "ins", finding: "Referenced in the referral; attachment not received", src: SOURCES.referralInfusion, srcLabel: "Referral form, 2026-09-15" },
+        { name: "Caregiver or self-administration confirmed", status: "ins", finding: "Not assessed in any received document", src: null, srcLabel: "No source document found" }
+      ],
+      trace: [
+        { t: "Request received", m: "Referral intake parsed; member and benefit validated.", svc: "Azure Logic Apps", state: "done" },
+        { t: "Policy and records retrieved", m: "2 documents retrieved; referenced attachment missing.", svc: "Azure AI Search", state: "done" },
+        { t: "Criteria worksheet drafted", m: "Two criteria could not be evidenced.", svc: "Azure OpenAI in Azure AI Foundry Models", state: "done" },
+        { t: "Held for documentation", m: "Pended rather than decided on an incomplete record.", svc: "Human-in-the-loop gate", state: "gate" }
+      ],
+      actions: ["requestInfo", "escalate"],
+      blocked: "Approval is unavailable while two criteria have no supporting document. Missing documentation is not grounds for an automated denial — request the records or route for individual consideration.",
+      retrieval: {
+        idleText: "Last retrieval 09:59. One referenced attachment was not found in any connected source.",
+        workingText: "Searching connected sources for the referenced discharge packet…",
+        resultText: "Retrieval finished. The referenced discharge packet is still not present in any connected source, so prior therapy and caregiver capability remain unevidenced.",
+        auditText: "Evidence retrieval re-run across connected sources; referenced attachment not found."
+      },
+      audit: [
+        { time: "09:58", who: "system", text: "Request PA-48212 received and validated." },
+        { time: "09:59", who: "system", text: "Draft recommendation generated from 2 retrieved sources. Draft only — not a determination." },
+        { time: "09:59", who: "system", text: "Pended for missing documentation." }
+      ]
+    }
+  ];
+
+  var ACTIONS = {
+    approve: {
+      label: "Approve authorization",
+      primary: true,
+      dialogTitle: "Approve authorization",
+      explain: "Approving issues an authorization to the member and the ordering provider and closes the request. Approval is recorded against your reviewer credentials.",
+      attest: "I reviewed the criteria worksheet and the underlying sources, and I agree the request meets policy.",
+      confirm: "Record approval",
+      status: "approved",
+      tag: "tag-approved",
+      resultClass: "",
+      resultText: function (c) {
+        return "Approved by S. Alvarado, RN. Authorization " + c.authNumber + " issued to the member and ordering provider.";
+      },
+      resultNote: "Notification queued through Azure Logic Apps (simulated). Nothing leaves this demo.",
+      audit: function (c) { return "Approved. Authorization " + c.authNumber + " issued; notifications queued."; }
+    },
+    escalate: {
+      label: "Route to medical director",
+      primary: false,
+      dialogTitle: "Route to medical director",
+      explain: "Routing sends the packet, the criteria worksheet, and every source to a medical director for individual consideration. No determination is issued by this step.",
+      attest: "I reviewed the case and confirm it needs medical director consideration.",
+      confirm: "Route case",
+      status: "escalated",
+      tag: "tag-escalated",
+      resultClass: "is-escalated",
+      resultText: function () {
+        return "Routed to medical director queue by S. Alvarado, RN. Case remains open and no determination has been issued.";
+      },
+      resultNote: "Turnaround clock continues to run while the case is with the medical director.",
+      audit: function () { return "Routed to medical director for individual consideration."; }
+    },
+    requestInfo: {
+      label: "Request additional clinical information",
+      primary: true,
+      dialogTitle: "Request additional clinical information",
+      explain: "This pends the request and asks the ordering provider for the missing documentation. The case stays open and no determination is issued.",
+      attest: "I confirm the record is incomplete and additional documentation is required.",
+      confirm: "Send request",
+      status: "pended",
+      tag: "tag-pended",
+      resultClass: "is-pended",
+      resultText: function () {
+        return "Pended by S. Alvarado, RN. Request for the missing discharge packet sent to Cascadia Internal Medicine.";
+      },
+      resultNote: "Provider outreach queued through Azure Logic Apps (simulated). Nothing leaves this demo.",
+      audit: function () { return "Pended; additional clinical information requested from the ordering provider."; }
+    }
+  };
+
+  var STATUS_TAGS = {
+    review: { cls: "tag-review", label: "Needs review" },
+    approved: { cls: "tag-approved", label: "Approved" },
+    escalated: { cls: "tag-escalated", label: "With medical director" },
+    pended: { cls: "tag-pended", label: "Pended for records" }
+  };
+
+  /* ------------------------------------------------------------------
+   * State
+   * ---------------------------------------------------------------- */
+  var state = { cases: [], selectedId: null, filter: "all", clock: 0, pendingAction: null };
+
+  var el = {};
+  ["queueList", "queueCount", "queueEmpty", "caseHeading", "caseCode", "caseSla", "caseFacts",
+   "recoText", "evidenceStrength", "policyRef", "critBody", "critSummary", "viewPolicy",
+   "retrievalCard", "retrievalStatus", "retrievalProgress", "rerunRetrieval",
+   "dockBlocked", "dockBlockedText", "dockDecided", "dockDecidedText", "dockActions", "dockHint", "decisionStatus",
+   "traceList", "traceCount", "auditList", "resetDemo",
+   "evidenceDialog", "evTitle", "evSub", "evMeta", "evExcerpt", "evClose", "evDone",
+   "decisionDialog", "decTitle", "decSub", "decExplain", "decAttest", "decAttestText",
+   "decNote", "decError", "decCancel", "decConfirm"].forEach(function (id) {
+    el[id] = document.getElementById(id);
+  });
+
+  function deepCopy(value) { return JSON.parse(JSON.stringify(value)); }
+
+  function resetState() {
+    // Sources are shared objects; re-link them after copying the seed.
+    state.cases = SEED.map(function (seed) {
+      var copy = deepCopy(seed);
+      copy.policy = seed.policy;
+      copy.criteria.forEach(function (row, i) { row.src = seed.criteria[i].src; });
+      copy.status = "review";
+      copy.decision = null;
+      copy.retrievalDone = false;
+      copy.authNumber = "AUTH-" + seed.id.slice(3);
+      return copy;
+    });
+    state.selectedId = state.cases[0].id;
+    state.filter = "all";
+    state.clock = 0;
+    setFilterButtons();
+    render();
+  }
+
+  function selected() {
+    return state.cases.filter(function (c) { return c.id === state.selectedId; })[0];
+  }
+
+  /** Deterministic demo clock so a rehearsed walkthrough always matches. */
+  function nextTimestamp() {
+    state.clock += 3;
+    var base = 10 * 60 + 4 + state.clock;
+    var h = Math.floor(base / 60), m = base % 60;
+    return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+  }
+
+  function icon(name, size) {
+    return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-' + name + '"/></svg>';
+  }
+
+  function text(node, value) { node.textContent = value; }
+
+  /* ------------------------------------------------------------------
+   * Queue
+   * ---------------------------------------------------------------- */
+  function visibleCases() {
+    return state.cases.filter(function (c) {
+      if (state.filter === "open") return c.status === "review";
+      if (state.filter === "closed") return c.status !== "review";
+      return true;
+    });
+  }
+
+  function renderQueue() {
+    var list = visibleCases();
+    el.queueList.textContent = "";
+
+    list.forEach(function (c) {
+      var tag = STATUS_TAGS[c.status];
+      var li = document.createElement("li");
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "queue-item";
+      btn.setAttribute("aria-current", c.id === state.selectedId ? "true" : "false");
+
+      var top = document.createElement("span");
+      top.className = "qi-top";
+      var code = document.createElement("span");
+      code.className = "qi-id";
+      code.textContent = c.id;
+      var status = document.createElement("span");
+      status.className = "tag " + tag.cls;
+      status.textContent = tag.label;
+      top.appendChild(code);
+      top.appendChild(status);
+
+      var service = document.createElement("span");
+      service.className = "qi-service";
+      service.textContent = c.service;
+
+      var meta = document.createElement("span");
+      meta.className = "qi-meta";
+      var who = document.createElement("span");
+      who.textContent = c.member + " · " + c.plan;
+      var when = document.createElement("span");
+      when.textContent = "CPT " + c.code;
+      meta.appendChild(who);
+      meta.appendChild(when);
+
+      btn.appendChild(top);
+      btn.appendChild(service);
+      btn.appendChild(meta);
+
+      btn.addEventListener("click", function () {
+        state.selectedId = c.id;
+        render();
+      });
+
+      li.appendChild(btn);
+      el.queueList.appendChild(li);
+    });
+
+    var open = state.cases.filter(function (c) { return c.status === "review"; }).length;
+    text(el.queueCount, open + " awaiting review");
+    el.queueEmpty.hidden = list.length > 0;
+  }
+
+  function setFilterButtons() {
+    var chips = document.querySelectorAll(".chip");
+    Array.prototype.forEach.call(chips, function (chip) {
+      chip.setAttribute("aria-pressed", chip.dataset.filter === state.filter ? "true" : "false");
+    });
+  }
+
+  /* ------------------------------------------------------------------
+   * Case detail
+   * ---------------------------------------------------------------- */
+  function renderFacts(c) {
+    var rows = [
+      ["Member", c.member, false],
+      ["Member ID", c.memberId, true],
+      ["Plan", c.plan, false],
+      ["Requested service", c.service + " (CPT " + c.code + ")", false],
+      ["Ordering provider", c.provider, false],
+      ["Provider identifier", c.providerId, true],
+      ["Servicing facility", c.facility, false],
+      ["Received", c.received, true]
+    ];
+    el.caseFacts.textContent = "";
+    rows.forEach(function (row) {
+      var wrap = document.createElement("div");
+      var dt = document.createElement("dt");
+      dt.textContent = row[0];
+      var dd = document.createElement("dd");
+      dd.textContent = row[1];
+      if (row[2]) dd.className = "mono";
+      wrap.appendChild(dt);
+      wrap.appendChild(dd);
+      el.caseFacts.appendChild(wrap);
+    });
+  }
+
+  function renderCriteria(c) {
+    var labels = { met: ["st-met", "check", "Met"], not: ["st-not", "x", "Not met"], ins: ["st-ins", "alert", "Insufficient evidence"] };
+    el.critBody.textContent = "";
+
+    c.criteria.forEach(function (row) {
+      var meta = labels[row.status];
+      var tr = document.createElement("tr");
+
+      var tdName = document.createElement("td");
+      var name = document.createElement("div");
+      name.className = "crit-name";
+      name.textContent = row.name;
+      var finding = document.createElement("div");
+      finding.className = "crit-src";
+      finding.textContent = row.finding;
+      tdName.appendChild(name);
+      tdName.appendChild(finding);
+
+      var tdStatus = document.createElement("td");
+      tdStatus.className = "status-cell";
+      var st = document.createElement("span");
+      st.className = "st " + meta[0];
+      st.innerHTML = icon(meta[1], 14);
+      var stText = document.createElement("span");
+      stText.textContent = meta[2];
+      st.appendChild(stText);
+      tdStatus.appendChild(st);
+
+      // Criteria with no retrieved document get plain text, never a link that opens something else.
+      var tdSrc = document.createElement("td");
+      if (row.src) {
+        var srcBtn = document.createElement("button");
+        srcBtn.type = "button";
+        srcBtn.className = "btn-link";
+        srcBtn.textContent = row.srcLabel;
+        srcBtn.addEventListener("click", function () { openEvidence(row.src, row.name); });
+        tdSrc.appendChild(srcBtn);
+      } else {
+        var srcNone = document.createElement("span");
+        srcNone.className = "crit-src";
+        srcNone.textContent = row.srcLabel;
+        tdSrc.appendChild(srcNone);
+      }
+
+      tr.appendChild(tdName);
+      tr.appendChild(tdStatus);
+      tr.appendChild(tdSrc);
+      el.critBody.appendChild(tr);
+    });
+
+    var met = c.criteria.filter(function (r) { return r.status === "met"; }).length;
+    text(el.critSummary, met + " of " + c.criteria.length + " criteria met");
+  }
+
+  function renderStrength(c) {
+    var map = { met: "on-met", warn: "on-warn", stop: "on-stop" };
+    el.evidenceStrength.textContent = "";
+    var dots = document.createElement("span");
+    dots.className = "dots";
+    var filled = c.criteria.filter(function (r) { return r.status === "met"; }).length;
+    for (var i = 0; i < c.criteria.length; i++) {
+      var d = document.createElement("span");
+      d.className = "dot" + (i < filled ? " " + map[c.strength.level] : "");
+      dots.appendChild(d);
+    }
+    var label = document.createElement("span");
+    label.textContent = "Evidence coverage: " + c.strength.label;
+    el.evidenceStrength.appendChild(dots);
+    el.evidenceStrength.appendChild(label);
+  }
+
+  function renderTrace(c) {
+    el.traceList.textContent = "";
+    c.trace.forEach(function (step) {
+      var li = document.createElement("li");
+      var dot = document.createElement("span");
+      dot.className = "trace-dot" + (step.state === "gate" ? " is-gate" : step.state === "blocked" ? " is-blocked" : "");
+      dot.innerHTML = icon(step.state === "done" ? "check" : step.state === "gate" ? "pause" : "alert", 11);
+
+      var body = document.createElement("span");
+      var t = document.createElement("span");
+      t.className = "trace-t";
+      t.textContent = step.t;
+      var m = document.createElement("span");
+      m.className = "trace-m";
+      m.textContent = step.m;
+      var svc = document.createElement("span");
+      svc.className = "trace-svc";
+      svc.textContent = step.svc;
+
+      body.appendChild(t);
+      body.appendChild(m);
+      body.appendChild(svc);
+      li.appendChild(dot);
+      li.appendChild(body);
+      el.traceList.appendChild(li);
+    });
+    text(el.traceCount, c.id);
+  }
+
+  function renderAudit(c) {
+    el.auditList.textContent = "";
+    c.audit.forEach(function (entry) {
+      var li = document.createElement("li");
+      var time = document.createElement("time");
+      time.textContent = entry.time;
+      var body = document.createElement("span");
+      var who = document.createElement("span");
+      who.className = "who-tag " + (entry.who === "system" ? "is-system" : "is-human");
+      who.textContent = entry.who === "system" ? "System — " : "S. Alvarado, RN — ";
+      var what = document.createElement("span");
+      what.textContent = entry.text;
+      body.appendChild(who);
+      body.appendChild(what);
+      li.appendChild(time);
+      li.appendChild(body);
+      el.auditList.appendChild(li);
+    });
+  }
+
+  function renderRetrieval(c) {
+    if (!c.retrieval) {
+      el.retrievalCard.hidden = true;
+      return;
+    }
+    el.retrievalCard.hidden = false;
+    el.retrievalProgress.hidden = true;
+    el.rerunRetrieval.disabled = c.status !== "review";
+    text(el.retrievalStatus, c.retrievalDone ? c.retrieval.resultText : c.retrieval.idleText);
+  }
+
+  function renderDock(c) {
+    el.dockActions.textContent = "";
+
+    if (c.decision) {
+      var action = ACTIONS[c.decision.action];
+      el.dockBlocked.hidden = true;
+      el.dockDecided.hidden = false;
+      el.dockDecided.className = "decided " + action.resultClass;
+      el.dockDecidedText.textContent = "";
+      var main = document.createElement("span");
+      main.textContent = action.resultText(c);
+      var note = document.createElement("span");
+      note.className = "decided-note";
+      note.textContent = action.resultNote + (c.decision.note ? " Reviewer note: " + c.decision.note : "");
+      el.dockDecidedText.appendChild(main);
+      el.dockDecidedText.appendChild(note);
+
+      var undo = document.createElement("button");
+      undo.type = "button";
+      undo.className = "btn";
+      undo.textContent = "Reopen case";
+      undo.addEventListener("click", function () { reopen(c); });
+      el.dockActions.appendChild(undo);
+      el.dockHint.hidden = true;
+      return;
+    }
+
+    el.dockDecided.hidden = true;
+    if (c.blocked) {
+      el.dockBlocked.hidden = false;
+      text(el.dockBlockedText, c.blocked);
+    } else {
+      el.dockBlocked.hidden = true;
+    }
+
+    var hint = "";
+    c.actions.forEach(function (key) {
+      var action = ACTIONS[key];
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn" + (action.primary ? " btn-primary" : "");
+      btn.textContent = action.label;
+
+      if (key === "requestInfo" && !c.retrievalDone) {
+        btn.disabled = true;
+        hint = "Re-run evidence retrieval before requesting records, so the provider is only contacted for a document the plan genuinely does not hold.";
+      }
+
+      btn.addEventListener("click", function () { openDecision(c, key); });
+      el.dockActions.appendChild(btn);
+    });
+
+    if (hint) {
+      text(el.dockHint, hint);
+      el.dockHint.hidden = false;
+    } else {
+      el.dockHint.hidden = true;
+    }
+  }
+
+  function render() {
+    var c = selected();
+    renderQueue();
+    if (!c) return;
+
+    text(el.caseHeading, c.service);
+    text(el.caseCode, c.id + " · CPT " + c.code);
+    text(el.policyRef, "Policy " + c.policyRef);
+    text(el.recoText, c.reco);
+
+    el.caseSla.textContent = "";
+    var bar = document.createElement("span");
+    bar.className = "sla-bar";
+    var fill = document.createElement("span");
+    fill.className = "sla-fill";
+    fill.style.width = c.slaPct + "%";
+    bar.appendChild(fill);
+    var slaText = document.createElement("span");
+    slaText.textContent = c.slaLabel;
+    el.caseSla.appendChild(bar);
+    el.caseSla.appendChild(slaText);
+
+    renderFacts(c);
+    renderStrength(c);
+    renderCriteria(c);
+    renderRetrieval(c);
+    renderTrace(c);
+    renderAudit(c);
+    renderDock(c);
+  }
+
+  /* ------------------------------------------------------------------
+   * Evidence dialog
+   * ---------------------------------------------------------------- */
+  function openEvidence(source, criterion) {
+    text(el.evTitle, source.title);
+    text(el.evSub, criterion ? "Cited for: " + criterion : source.kind);
+
+    el.evMeta.textContent = "";
+    [["Document type", source.kind], ["Document date", source.date], ["Recorded by", source.author], ["Retrieved by", source.retrieval]]
+      .forEach(function (row) {
+        var wrap = document.createElement("div");
+        var dt = document.createElement("dt");
+        dt.textContent = row[0];
+        var dd = document.createElement("dd");
+        dd.textContent = row[1];
+        wrap.appendChild(dt);
+        wrap.appendChild(dd);
+        el.evMeta.appendChild(wrap);
+      });
+
+    text(el.evExcerpt, source.text);
+    showDialog(el.evidenceDialog);
+  }
+
+  /* ------------------------------------------------------------------
+   * Decision dialog
+   * ---------------------------------------------------------------- */
+  function openDecision(c, key) {
+    var action = ACTIONS[key];
+    state.pendingAction = { caseId: c.id, key: key };
+
+    text(el.decTitle, action.dialogTitle);
+    text(el.decSub, c.id + " · " + c.service + " · " + c.member);
+    text(el.decExplain, action.explain);
+    text(el.decAttestText, action.attest);
+    text(el.decConfirm, action.confirm);
+    el.decAttest.checked = false;
+    el.decNote.value = "";
+    text(el.decError, "");
+
+    showDialog(el.decisionDialog);
+  }
+
+  function commitDecision() {
+    if (!state.pendingAction) return;
+    if (!el.decAttest.checked) {
+      text(el.decError, "Select the attestation to record this decision.");
+      el.decAttest.focus();
+      return;
+    }
+
+    var c = state.cases.filter(function (x) { return x.id === state.pendingAction.caseId; })[0];
+    var key = state.pendingAction.key;
+    var action = ACTIONS[key];
+    var note = el.decNote.value.trim();
+
+    c.decision = { action: key, note: note };
+    c.status = action.status;
+    c.audit = c.audit.concat([
+      { time: nextTimestamp(), who: "human", text: action.audit(c) + " Attestation recorded." }
+    ]);
+    if (note) {
+      c.audit = c.audit.concat([{ time: nextTimestamp(), who: "human", text: "Reviewer note: " + note }]);
+    }
+
+    state.pendingAction = null;
+    closeDialog(el.decisionDialog);
+    render();
+    text(el.decisionStatus, action.dialogTitle + " recorded for " + c.id + ".");
+  }
+
+  function reopen(c) {
+    c.decision = null;
+    c.status = "review";
+    c.audit = c.audit.concat([
+      { time: nextTimestamp(), who: "human", text: "Case reopened for further review. Prior entries remain in the trail." }
+    ]);
+    render();
+    text(el.decisionStatus, c.id + " reopened.");
+  }
+
+  /* ------------------------------------------------------------------
+   * Dialog helpers (guarded for browsers without <dialog>)
+   * ---------------------------------------------------------------- */
+  function showDialog(dialog) {
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
+  }
+  function closeDialog(dialog) {
+    if (typeof dialog.close === "function") dialog.close();
+    else dialog.removeAttribute("open");
+  }
+
+  /* ------------------------------------------------------------------
+   * Events
+   * ---------------------------------------------------------------- */
+  Array.prototype.forEach.call(document.querySelectorAll(".chip"), function (chip) {
+    chip.addEventListener("click", function () {
+      state.filter = chip.dataset.filter;
+      setFilterButtons();
+      renderQueue();
+    });
+  });
+
+  el.viewPolicy.addEventListener("click", function () {
+    var c = selected();
+    if (c) openEvidence(c.policy, null);
+  });
+
+  el.evClose.addEventListener("click", function () { closeDialog(el.evidenceDialog); });
+  el.evDone.addEventListener("click", function () { closeDialog(el.evidenceDialog); });
+  el.decCancel.addEventListener("click", function () {
+    state.pendingAction = null;
+    closeDialog(el.decisionDialog);
+  });
+  el.decConfirm.addEventListener("click", commitDecision);
+  el.decAttest.addEventListener("change", function () {
+    if (el.decAttest.checked) text(el.decError, "");
+  });
+
+  el.rerunRetrieval.addEventListener("click", function () {
+    var c = selected();
+    if (!c || !c.retrieval) return;
+
+    el.rerunRetrieval.disabled = true;
+    el.retrievalProgress.hidden = false;
+    text(el.retrievalStatus, c.retrieval.workingText);
+
+    window.setTimeout(function () {
+      c.retrievalDone = true;
+      c.audit = c.audit.concat([{ time: nextTimestamp(), who: "human", text: c.retrieval.auditText }]);
+      el.retrievalProgress.hidden = true;
+      render();
+      text(el.decisionStatus, "Retrieval finished. Referenced attachment not found.");
+    }, 900);
+  });
+
+  el.resetDemo.addEventListener("click", function () {
+    resetState();
+    text(el.decisionStatus, "Demo data restored.");
+  });
+
+  resetState();
+})();
+</script>
+</body>
+</html>
