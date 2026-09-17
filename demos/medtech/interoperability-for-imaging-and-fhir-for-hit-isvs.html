@@ -1,0 +1,1292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arclight Connect — Interoperability Console (illustrative demo)</title>
+<style>
+  :root {
+    --ink: #15161d;
+    --ink-2: #4a4e5e;
+    --ink-3: #6f7486;
+    --surface: #ffffff;
+    --canvas: #eef0f5;
+    --rail: #f6f7fa;
+    --line: #d5d9e3;
+    --line-soft: #e6e9f0;
+    --accent: #3b3a8f;
+    --accent-2: #2e2d72;
+    --accent-soft: #ececf8;
+    --pass: #0f6b46;
+    --pass-bg: #e6f4ed;
+    --warn: #8a5300;
+    --warn-bg: #fbf0dc;
+    --fail: #a02226;
+    --fail-bg: #fbeaeb;
+    --mute-bg: #eef0f4;
+    --focus: #1a56db;
+    --radius: 6px;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+
+  /* Author display rules outrank the UA [hidden] rule, so restore it explicitly. */
+  [hidden] { display: none !important; }
+
+  body {
+    margin: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  :where(button, input, select, textarea, [role="tab"]):focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  /* ------------------------------------------------------------- app bar */
+  .appbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px;
+    padding: 10px 18px; background: #1b1c2b; color: #eef0f7;
+    border-bottom: 3px solid var(--accent);
+    position: sticky; top: 0; z-index: 30;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+  .brand-name { font-weight: 650; }
+  .brand-sub { display: block; font-size: 12px; font-weight: 400; color: #a3a8c0; }
+  .disclosure {
+    display: inline-flex; align-items: center; gap: 7px; margin: 0;
+    padding: 5px 10px; border: 1px solid #55568a; border-radius: 999px;
+    background: #24253d; color: #c8cbe8; font-size: 12px; font-weight: 600;
+  }
+  .who { margin: 0; font-size: 13px; color: #b6bad0; text-align: right; }
+  .who b { color: #eef0f7; font-weight: 600; }
+
+  /* ------------------------------------------------------------- buttons */
+  .btn {
+    font: inherit; font-size: 14px; font-weight: 550; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 8px 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+    min-height: 38px;
+  }
+  .btn:hover:not(:disabled) { border-color: #b3b9c8; }
+  .btn:disabled { cursor: not-allowed; opacity: .55; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-2); border-color: var(--accent-2); }
+  .btn-light { background: transparent; color: #dfe2f2; border-color: #4d4f78; }
+  .btn-light:hover { background: #2a2b45; }
+  .btn-link {
+    font: inherit; font-size: 13px; color: var(--accent-2); background: none;
+    border: 0; border-bottom: 1px solid #b4b3dd; padding: 0 0 1px; cursor: pointer;
+  }
+  .btn-link:hover { border-bottom-color: var(--accent); }
+
+  /* ------------------------------------------------------ connection tabs */
+  .connbar {
+    background: var(--rail); border-bottom: 1px solid var(--line);
+    padding: 0 14px; display: flex; gap: 4px; overflow-x: auto;
+  }
+  [role="tab"] {
+    font: inherit; font-size: 14px; background: none; border: 0;
+    border-bottom: 3px solid transparent; padding: 11px 14px 9px; cursor: pointer;
+    color: var(--ink-2); display: grid; gap: 3px; justify-items: start;
+    white-space: nowrap; min-height: 44px;
+  }
+  [role="tab"][aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+  [role="tab"] .t-name { font-weight: 600; }
+  [role="tab"] .t-meta { font-size: 12px; color: var(--ink-3); display: flex; align-items: center; gap: 6px; }
+
+  .state-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .state-pass { background: var(--pass); }
+  .state-warn { background: var(--warn); }
+  .state-fail { background: var(--fail); }
+  .state-none { background: #a7adbb; }
+
+  /* -------------------------------------------------------------- layout */
+  .console {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+    gap: 1px; background: var(--line); min-height: calc(100vh - 190px);
+  }
+  .panel { background: var(--canvas); min-width: 0; }
+  .panel-side { background: var(--rail); }
+  .panel-body { padding: 16px; display: grid; gap: 14px; align-content: start; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+  .card-head {
+    display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline;
+    justify-content: space-between; padding: 12px 15px; border-bottom: 1px solid var(--line-soft);
+  }
+  .card-head h2, .card-head h3 { margin: 0; font-size: 14.5px; font-weight: 650; }
+  .card-body { padding: 14px 15px; }
+  .card-note { font-size: 12.5px; color: var(--ink-3); }
+
+  /* --------------------------------------------------------- connection */
+  .conn-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+  .conn-title h2 { margin: 0; font-size: 19px; line-height: 1.25; }
+  .env {
+    font-size: 11.5px; font-weight: 650; padding: 2px 8px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent-2); border: 1px solid #c9c8ea;
+  }
+  .endpoints { display: grid; gap: 10px; margin: 0; }
+  .endpoints > div { min-width: 0; }
+  .endpoints dt { font-size: 12px; color: var(--ink-3); margin-bottom: 2px; }
+  .endpoints dd { margin: 0; font-family: var(--mono); font-size: 12.5px; word-break: break-all; }
+
+  .summary-line { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 13.5px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600;
+    padding: 3px 9px; border-radius: 999px; border: 1px solid transparent;
+  }
+  .pill-pass { background: var(--pass-bg); color: var(--pass); border-color: #a8d5c1; }
+  .pill-warn { background: var(--warn-bg); color: var(--warn); border-color: #e3c890; }
+  .pill-fail { background: var(--fail-bg); color: var(--fail); border-color: #e5b9bb; }
+  .pill-mute { background: var(--mute-bg); color: var(--ink-2); border-color: var(--line); }
+
+  /* ------------------------------------------------------------- matrix */
+  .matrix-head {
+    display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center;
+    justify-content: space-between; padding: 12px 15px; border-bottom: 1px solid var(--line-soft);
+  }
+  .matrix-head h3 { margin: 0; font-size: 14.5px; }
+  .seg { display: flex; flex: none; gap: 0; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .seg button {
+    font: inherit; font-size: 12.5px; font-weight: 550; background: var(--surface);
+    border: 0; padding: 6px 11px; cursor: pointer; color: var(--ink-2); min-height: 32px;
+  }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+
+  .group-title {
+    font-size: 12px; font-weight: 650; color: var(--ink-2);
+    padding: 11px 15px 7px; background: var(--rail); border-bottom: 1px solid var(--line-soft);
+  }
+  .checks { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .checks th, .checks td { text-align: left; padding: 10px 15px; border-top: 1px solid var(--line-soft); vertical-align: top; }
+  .checks thead th { border-top: 0; font-size: 12px; color: var(--ink-3); font-weight: 600; padding-top: 8px; padding-bottom: 8px; }
+  .checks tbody tr:hover { background: #fafbfc; }
+  .c-name { font-weight: 550; }
+  .c-req { font-size: 12.5px; color: var(--ink-3); margin-top: 3px; }
+  .c-spec { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); margin-top: 3px; }
+  .st { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; white-space: nowrap; }
+  .st-pass { color: var(--pass); }
+  .st-fail { color: var(--fail); }
+  .st-workaround { color: var(--warn); }
+  .st-advisory { color: var(--ink-2); }
+  .c-note { font-size: 12.5px; color: var(--ink-3); margin-top: 4px; max-width: 46ch; }
+
+  .empty {
+    display: grid; gap: 11px; justify-items: start; padding: 22px 15px; font-size: 14px; color: var(--ink-2);
+  }
+
+  /* ------------------------------------------------------------- run box */
+  .run { display: grid; gap: 9px; }
+  .run progress { width: 100%; max-width: 280px; height: 6px; }
+  .status-line { font-size: 13.5px; color: var(--ink-2); margin: 0; min-height: 20px; }
+
+  .trace { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+  .trace li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; padding-bottom: 12px; position: relative; }
+  .trace li:not(:last-child)::before { content: ""; position: absolute; left: 9px; top: 19px; bottom: 0; width: 2px; background: var(--line); }
+  .trace-dot {
+    width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; z-index: 1;
+    background: var(--pass-bg); color: var(--pass); border: 1px solid #a8d5c1;
+  }
+  .trace-dot.is-pending { background: var(--mute-bg); color: var(--ink-3); border-color: var(--line); }
+  .trace-t { display: block; font-size: 13.5px; font-weight: 600; }
+  .trace-m { display: block; font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+  .trace-svc {
+    display: inline-block; margin-top: 4px; font-size: 11.5px; color: var(--accent-2);
+    background: var(--accent-soft); border: 1px solid #cdccec; border-radius: 3px; padding: 1px 6px;
+  }
+
+  /* ---------------------------------------------------------- decisions */
+  .rule {
+    display: flex; gap: 9px; align-items: flex-start; font-size: 12.5px; color: var(--ink-2);
+    background: var(--rail); border: 1px solid var(--line-soft); padding: 9px 11px; border-radius: var(--radius);
+  }
+  .rule svg { flex: none; margin-top: 1px; }
+  .banner {
+    display: flex; gap: 9px; align-items: flex-start; font-size: 13.5px;
+    padding: 10px 12px; border-radius: var(--radius); border: 1px solid transparent;
+  }
+  .banner svg { flex: none; margin-top: 2px; }
+  .banner-fail { background: var(--fail-bg); border-color: #e5b9bb; color: #85201f; }
+  .banner-pass { background: var(--pass-bg); border-color: #a8d5c1; color: #0d5537; }
+  .banner-warn { background: var(--warn-bg); border-color: #e3c890; color: #7a4a00; }
+  .banner-note { display: block; margin-top: 3px; font-size: 12.5px; opacity: .92; }
+  .actions { display: flex; flex-wrap: wrap; gap: 9px; }
+
+  .audit { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; font-size: 13px; }
+  .audit li { display: grid; grid-template-columns: 50px minmax(0, 1fr); gap: 9px; }
+  .audit time { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+  .audit .actor { font-weight: 600; }
+  .audit .actor.is-system { color: var(--ink-2); }
+  .audit .actor.is-human { color: var(--accent-2); }
+
+  /* ------------------------------------------------------------- dialog */
+  dialog {
+    border: 1px solid var(--line); border-radius: 8px; padding: 0; color: var(--ink);
+    width: min(660px, calc(100vw - 32px)); box-shadow: 0 18px 44px rgba(16, 18, 34, .28);
+  }
+  dialog::backdrop { background: rgba(16, 18, 34, .46); }
+  .dlg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 15px 17px; border-bottom: 1px solid var(--line-soft); }
+  .dlg-head h2 { margin: 0; font-size: 16px; }
+  .dlg-sub { display: block; margin-top: 3px; font-size: 12.5px; color: var(--ink-3); }
+  .dlg-body { padding: 15px 17px; display: grid; gap: 12px; }
+  .dlg-foot { display: flex; flex-wrap: wrap; gap: 9px; justify-content: flex-end; padding: 13px 17px; border-top: 1px solid var(--line-soft); background: var(--rail); }
+  .wire {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65; white-space: pre-wrap;
+    background: #1d1e2c; color: #dfe2f2; padding: 11px 12px; border-radius: var(--radius); overflow-x: auto;
+  }
+  .wire-label { font-size: 12px; color: var(--ink-3); margin: 0 0 4px; }
+  .verdict { font-size: 14px; margin: 0; }
+  .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 9px 14px; font-size: 13px; margin: 0; }
+  .meta-grid dt { color: var(--ink-3); font-size: 12px; }
+  .meta-grid dd { margin: 0; }
+
+  .attest { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; padding: 11px 12px; background: var(--rail); border: 1px solid var(--line-soft); border-radius: var(--radius); }
+  .attest input { width: 18px; height: 18px; margin: 1px 0 0; flex: none; }
+  .field { display: grid; gap: 5px; }
+  .field label { font-size: 13px; color: var(--ink-2); font-weight: 550; }
+  .field textarea, .field input[type="date"] {
+    font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid var(--line);
+    border-radius: var(--radius); color: var(--ink); background: var(--surface);
+  }
+  .field textarea { resize: vertical; min-height: 66px; }
+  .dlg-error { font-size: 13px; color: var(--fail); min-height: 18px; margin: 0; }
+
+  /* ------------------------------------------------------------- footer */
+  .footer {
+    display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center;
+    padding: 11px 18px; background: #1b1c2b; color: #a3a8c0; font-size: 12.5px;
+  }
+  .built { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .svc-chip { border: 1px solid #45466e; border-radius: 3px; padding: 2px 7px; color: #ccd0e6; }
+  .claim { margin-left: auto; max-width: 56ch; }
+  .claim b { color: #dfe2f2; font-weight: 600; }
+
+  /* --------------------------------------------------------- responsive */
+  @media (max-width: 1080px) {
+    .console { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 760px) {
+    .who { text-align: left; }
+    .claim { margin-left: 0; }
+    .panel-body { padding: 13px; }
+    .checks thead { display: none; }
+    .checks, .checks tbody { display: block; }
+    .checks tbody tr { display: grid; gap: 5px; padding: 11px 15px; border-top: 1px solid var(--line-soft); }
+    .checks td { border-top: 0; padding: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<svg class="sr-only" aria-hidden="true" focusable="false">
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="M3 8.5l3.2 3.2L13 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-x" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 16 16"><path d="M8 2.5l6 11H2l6-11z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 6.6v3.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="11.7" r=".9" fill="currentColor"/></symbol>
+  <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="4.9" r=".9" fill="currentColor"/></symbol>
+  <symbol id="i-dash" viewBox="0 0 16 16"><path d="M4 8h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 16 16"><path d="M6 1.8v3.4M10 1.8v3.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3.6 5.2h8.8v2.4a4.4 4.4 0 0 1-8.8 0V5.2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 12v2.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+</svg>
+
+<header class="appbar">
+  <div class="brand">
+    <svg width="24" height="24" viewBox="0 0 16 16" aria-hidden="true" style="color:#9d9bf0"><use href="#i-plug"/></svg>
+    <span class="brand-name">Arclight Connect &mdash; Interoperability Console
+      <span class="brand-sub">Arclight Imaging Systems &middot; fictional health IT vendor</span>
+    </span>
+  </div>
+
+  <p class="disclosure">
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-info"/></svg>
+    Illustrative demo &middot; synthetic data
+  </p>
+
+  <p class="who"><b>M. Okonkwo</b><br>Integration architect</p>
+
+  <button type="button" class="btn btn-light" id="resetDemo">Restore demo data</button>
+</header>
+
+<main>
+  <div class="connbar" role="tablist" aria-label="Health system connections" id="connTabs"></div>
+
+  <div class="console" id="connPanel" role="tabpanel">
+
+    <!-- ================================================= conformance -->
+    <section class="panel" aria-labelledby="connHeading">
+      <div class="panel-body">
+
+        <article class="card">
+          <div class="card-head">
+            <div class="conn-title">
+              <h2 id="connHeading">Connection</h2>
+              <span class="env" id="connEnv"></span>
+            </div>
+            <p class="card-note" id="connContact"></p>
+          </div>
+          <div class="card-body" style="display:grid;gap:13px">
+            <dl class="endpoints" id="connEndpoints"></dl>
+            <p class="summary-line" id="connSummary"></p>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="matrix-head">
+            <h3>Capability conformance</h3>
+            <div class="seg" role="group" aria-label="Filter capability rows">
+              <button type="button" data-view="all" aria-pressed="true">All checks</button>
+              <button type="button" data-view="issues" aria-pressed="false">Issues only</button>
+            </div>
+          </div>
+          <div id="matrixRoot"></div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ================================================= side rail -->
+    <aside class="panel panel-side" aria-label="Validation and certification">
+      <div class="panel-body">
+
+        <article class="card">
+          <div class="card-head"><h3>Go-live decision</h3></div>
+          <div class="card-body" style="display:grid;gap:11px">
+            <p class="rule">
+              <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-info"/></svg>
+              <span>A connection can be certified when every required capability is conformant or covered by an acknowledged workaround. Blocking gaps are resolved by the health system, not waived here.</span>
+            </p>
+            <p class="banner banner-fail" id="blockBanner" hidden>
+              <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-alert"/></svg>
+              <span id="blockText"></span>
+            </p>
+            <p class="banner" id="outcomeBanner" hidden>
+              <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-check"/></svg>
+              <span id="outcomeText"></span>
+            </p>
+            <div class="actions" id="decisionActions"></div>
+            <p class="status-line sr-only" id="decisionStatus" role="status"></p>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-head"><h3>Conformance run</h3><span class="card-note" id="runWhen"></span></div>
+          <div class="card-body run">
+            <p class="status-line" id="runStatus" role="status"></p>
+            <progress id="runProgress" hidden aria-label="Running conformance validation"></progress>
+            <ol class="trace" id="runTrace"></ol>
+            <p><button type="button" class="btn" id="runValidation"></button></p>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-head"><h3>Audit trail</h3><span class="card-note">append-only</span></div>
+          <div class="card-body"><ul class="audit" id="auditList"></ul></div>
+        </article>
+
+      </div>
+    </aside>
+  </div>
+</main>
+
+<footer class="footer">
+  <span class="built">
+    Built on
+    <span class="svc-chip">Azure API Management</span>
+    <span class="svc-chip">Azure App Service</span>
+    <span class="svc-chip">Azure Storage</span>
+    <span class="svc-chip">Microsoft Fabric</span>
+  </span>
+  <span class="claim">
+    FY27 HLS catalog value claim for this use case: <b>integration time and cost down, data exchange breadth up, faster product integration with health systems, compliance with interoperability mandates.</b>
+    The catalog states no figures for this use case, so every number here is fictional operational data.
+  </span>
+</footer>
+
+<!-- ================================================= evidence dialog -->
+<dialog id="evidenceDialog" aria-labelledby="evTitle">
+  <div class="dlg-head">
+    <div>
+      <h2 id="evTitle"></h2>
+      <span class="dlg-sub" id="evSub"></span>
+    </div>
+    <button type="button" class="btn" id="evClose" aria-label="Close evidence">
+      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-x"/></svg>
+    </button>
+  </div>
+  <div class="dlg-body">
+    <dl class="meta-grid" id="evMeta"></dl>
+    <div>
+      <p class="wire-label">Probe sent by the connector</p>
+      <p class="wire" id="evRequest"></p>
+    </div>
+    <div>
+      <p class="wire-label">Response recorded from the site</p>
+      <p class="wire" id="evResponse"></p>
+    </div>
+    <p class="verdict" id="evVerdict"></p>
+  </div>
+  <div class="dlg-foot">
+    <button type="button" class="btn btn-primary" id="evDone">Back to connection</button>
+  </div>
+</dialog>
+
+<!-- ================================================= decision dialog -->
+<dialog id="decisionDialog" aria-labelledby="decTitle">
+  <form method="dialog">
+    <div class="dlg-head">
+      <div>
+        <h2 id="decTitle"></h2>
+        <span class="dlg-sub" id="decSub"></span>
+      </div>
+    </div>
+    <div class="dlg-body">
+      <p id="decExplain" style="margin:0;font-size:14px"></p>
+      <label class="attest">
+        <input type="checkbox" id="decAttest">
+        <span id="decAttestText"></span>
+      </label>
+      <div class="field" id="decDateField" hidden>
+        <label for="decDate">Workaround review date</label>
+        <input type="date" id="decDate">
+      </div>
+      <div class="field">
+        <label for="decNote">Note <span style="font-weight:400;color:var(--ink-3)">(recorded in the audit trail)</span></label>
+        <textarea id="decNote" placeholder="Optional context for this decision"></textarea>
+      </div>
+      <p class="dlg-error" id="decError" role="alert"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" id="decCancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="decConfirm"></button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+   * Fixture data. Sites, endpoints, identifiers, and wire traffic below
+   * are invented. Hostnames use the reserved .invalid TLD so they can
+   * never resolve.
+   * ---------------------------------------------------------------- */
+  var CHECKS = [
+    { id: "qido", group: "imaging", name: "QIDO-RS study query", spec: "DICOM PS3.18 §10.6", required: true,
+      requirement: "Query studies by patient identifier and date range." },
+    { id: "wado", group: "imaging", name: "WADO-RS instance retrieve", spec: "DICOM PS3.18 §10.4", required: true,
+      requirement: "Retrieve instances and rendered frames for review." },
+    { id: "stow", group: "imaging", name: "STOW-RS store", spec: "DICOM PS3.18 §10.5", required: true,
+      requirement: "Write derived series back to the site archive." },
+    { id: "tsyn", group: "imaging", name: "Transfer syntax negotiation", spec: "DICOM PS3.5", required: true,
+      requirement: "Explicit VR Little Endian and JPEG 2000 must be negotiable." },
+    { id: "tls", group: "imaging", name: "TLS 1.2+ transport", spec: "DICOM PS3.15", required: true,
+      requirement: "All imaging transport encrypted with TLS 1.2 or higher." },
+    { id: "cap", group: "clinical", name: "CapabilityStatement", spec: "FHIR R4", required: true,
+      requirement: "/metadata advertises supported resources and search parameters." },
+    { id: "psearch", group: "clinical", name: "Patient search", spec: "FHIR R4 · US Core", required: true,
+      requirement: "Search by identifier and birthdate." },
+    { id: "istudy", group: "clinical", name: "ImagingStudy read and search", spec: "FHIR R4", required: true,
+      requirement: "Link imaging studies to clinical context." },
+    { id: "dreport", group: "clinical", name: "DiagnosticReport read", spec: "FHIR R4", required: true,
+      requirement: "Retrieve report status and narrative." },
+    { id: "smart", group: "clinical", name: "SMART on FHIR authorization", spec: "SMART App Launch 2.0", required: true,
+      requirement: "Authorization code flow with granular, least-privilege scopes." },
+    { id: "subs", group: "clinical", name: "Event notification", spec: "FHIR R4 Subscription", required: true,
+      requirement: "Notify the connector when a study or report is finalized." },
+    { id: "bulk", group: "clinical", name: "Bulk export", spec: "FHIR Bulk Data Access", required: false,
+      requirement: "Asynchronous backfill of historical records." }
+  ];
+
+  var GROUPS = [
+    { id: "imaging", label: "Imaging exchange — DICOMweb" },
+    { id: "clinical", label: "Clinical data exchange — HL7 FHIR R4" }
+  ];
+
+  // Conformant baseline; connections override only what differs.
+  var BASE = {
+    qido: { note: "3 studies returned for the sandbox patient set.",
+      request: "GET /dicomweb/studies?PatientID=SYN-4471&StudyDate=20260701-20260916\nAccept: application/dicom+json",
+      response: "HTTP/1.1 200 OK\nContent-Type: application/dicom+json\n\n[ 3 study records returned — synthetic sandbox data ]",
+      verdict: "Conformant. The required query parameters are supported and results are well formed." },
+    wado: { note: "Instance and rendered frame retrieval both succeeded.",
+      request: "GET /dicomweb/studies/1.2.826.0.1.SYN.44/series/1.2.826.0.1.SYN.9/instances\nAccept: multipart/related; type=\"application/dicom\"",
+      response: "HTTP/1.1 200 OK\nContent-Type: multipart/related; type=\"application/dicom\"\n\n[ 18 instances, 42 MB — synthetic sandbox study ]",
+      verdict: "Conformant. Retrieval works for both instance and rendered representations." },
+    stow: { note: "Derived series accepted and acknowledged by the archive.",
+      request: "POST /dicomweb/studies\nContent-Type: multipart/related; type=\"application/dicom\"",
+      response: "HTTP/1.1 200 OK\nContent-Type: application/dicom+json\n\n[ ReferencedSOPSequence: 1 instance stored ]",
+      verdict: "Conformant. Derived output can be written back to the site archive." },
+    tsyn: { note: "Explicit VR Little Endian and JPEG 2000 both negotiated.",
+      request: "GET /dicomweb/studies/1.2.826.0.1.SYN.44/metadata\nAccept: application/dicom+json",
+      response: "HTTP/1.1 200 OK\n\nAvailableTransferSyntaxUID:\n  1.2.840.10008.1.2.1  (Explicit VR Little Endian)\n  1.2.840.10008.1.2.4.90 (JPEG 2000 Lossless)",
+      verdict: "Conformant. Both required transfer syntaxes are offered." },
+    tls: { note: "TLS 1.3 negotiated; no downgrade offered.",
+      request: "TLS handshake probe — dicom endpoint",
+      response: "Negotiated: TLS 1.3 (AES-256-GCM)\nCertificate chain valid\nTLS 1.0 / 1.1 offered: no",
+      verdict: "Conformant. Transport meets the minimum TLS requirement." },
+    cap: { note: "CapabilityStatement parsed; required resources advertised.",
+      request: "GET /fhir/R4/metadata\nAccept: application/fhir+json",
+      response: "HTTP/1.1 200 OK\n\nfhirVersion: 4.0.1\nrest.resource: Patient, ImagingStudy, DiagnosticReport, Observation",
+      verdict: "Conformant. The statement is reachable and lists the resources the product depends on." },
+    psearch: { note: "Identifier and birthdate search both supported.",
+      request: "GET /fhir/R4/Patient?identifier=SYN-4471&birthdate=1974-03-11",
+      response: "HTTP/1.1 200 OK\n\nBundle: searchset, total 1 — synthetic sandbox patient",
+      verdict: "Conformant. Required search parameters resolve correctly." },
+    istudy: { note: "Study read and patient-scoped search both succeeded.",
+      request: "GET /fhir/R4/ImagingStudy?patient=SYN-4471",
+      response: "HTTP/1.1 200 OK\n\nBundle: searchset, total 3 — synthetic sandbox studies",
+      verdict: "Conformant. Imaging context can be linked to clinical records." },
+    dreport: { note: "Report narrative and status returned.",
+      request: "GET /fhir/R4/DiagnosticReport/SYN-RPT-2208",
+      response: "HTTP/1.1 200 OK\n\nstatus: final\ncategory: RAD\nconclusion: [ synthetic narrative text ]",
+      verdict: "Conformant. Report retrieval meets product requirements." },
+    smart: { note: "Authorization code flow with least-privilege scopes.",
+      request: "GET /fhir/R4/.well-known/smart-configuration",
+      response: "HTTP/1.1 200 OK\n\ngrant_types_supported: authorization_code\nscopes_supported: launch, patient/ImagingStudy.rs, patient/DiagnosticReport.rs",
+      verdict: "Conformant. Granular scopes are available, so the connector requests only what it needs." },
+    subs: { note: "Subscription accepted; test notification delivered.",
+      request: "POST /fhir/R4/Subscription\nContent-Type: application/fhir+json",
+      response: "HTTP/1.1 201 Created\n\nstatus: active\nchannel.type: rest-hook\n[ test notification delivered in 1.2 s ]",
+      verdict: "Conformant. Event-driven exchange is available, so polling is not required." },
+    bulk: { note: "Not offered by this site.",
+      request: "GET /fhir/R4/$export?_type=DiagnosticReport\nPrefer: respond-async",
+      response: "HTTP/1.1 501 Not Implemented",
+      verdict: "Optional capability. Historical backfill falls back to paged search, so this does not block go-live." }
+  };
+
+  var CONNECTIONS = [
+    {
+      id: "meridian",
+      name: "Meridian Health Network",
+      env: "Staging",
+      contact: "Site contact: integration desk (fictional)",
+      fhir: "https://fhir.meridian.invalid/R4",
+      dicom: "https://dicom.meridian.invalid/dicomweb",
+      volume: "1,284 studies exchanged in staging",
+      seq: "0142",
+      validated: true,
+      ranAt: "2026-09-16 08:40",
+      overrides: { bulk: { status: "advisory" } },
+      audit: [
+        { time: "08:31", who: "system", text: "Connection registered for Meridian Health Network (staging)." },
+        { time: "08:40", who: "system", text: "Conformance run completed: 11 conformant, 1 optional capability absent." }
+      ]
+    },
+    {
+      id: "cascade",
+      name: "Cascade Valley Health",
+      env: "Staging",
+      contact: "Site contact: interface engineering (fictional)",
+      fhir: "https://fhir.cascadevalley.invalid/R4",
+      dicom: "https://dicom.cascadevalley.invalid/dicomweb",
+      volume: "96 studies exchanged in staging",
+      seq: "0143",
+      validated: true,
+      ranAt: "2026-09-16 09:05",
+      overrides: {
+        bulk: { status: "advisory" },
+        stow: { status: "fail", note: "Endpoint not exposed to external applications.",
+          request: "POST /dicomweb/studies\nContent-Type: multipart/related; type=\"application/dicom\"",
+          response: "HTTP/1.1 404 Not Found\n\nSTOW-RS is not published for external applications on this archive.",
+          verdict: "Blocking gap. The product writes derived series back to the archive; without STOW-RS that workflow cannot run in production." },
+        psearch: { status: "fail", note: "Identifier search parameter not advertised.",
+          request: "GET /fhir/R4/Patient?identifier=SYN-4471",
+          response: "HTTP/1.1 400 Bad Request\n\nOperationOutcome: search parameter 'identifier' is not supported.\nSupported: name, birthdate, gender",
+          verdict: "Blocking gap. The connector resolves patients by identifier. Name and birthdate matching alone is not acceptable for record linkage." }
+      },
+      audit: [
+        { time: "08:52", who: "system", text: "Connection registered for Cascade Valley Health (staging)." },
+        { time: "09:05", who: "system", text: "Conformance run completed: 2 blocking gaps recorded." }
+      ]
+    },
+    {
+      id: "brightpath",
+      name: "Brightpath Clinics",
+      env: "Sandbox",
+      contact: "Site contact: clinical applications (fictional)",
+      fhir: "https://fhir.brightpath.invalid/R4",
+      dicom: "https://dicom.brightpath.invalid/dicomweb",
+      volume: "No exchange recorded yet",
+      seq: "0144",
+      validated: false,
+      ranAt: "2026-09-16 10:12",
+      overrides: {
+        bulk: { status: "advisory" },
+        subs: { status: "workaround", note: "No FHIR Subscription; site offers a legacy HL7 v2 feed.",
+          request: "POST /fhir/R4/Subscription\nContent-Type: application/fhir+json",
+          response: "HTTP/1.1 404 Not Found\n\nSubscription is not implemented.\nSite publishes an HL7 v2.5.1 ADT/ORU feed over MLLP instead.",
+          verdict: "Workaround required. The connector can consume the legacy HL7 v2 feed and normalize it, but the dependency should carry a review date rather than becoming permanent." }
+      },
+      audit: [
+        { time: "10:04", who: "system", text: "Connection registered for Brightpath Clinics (sandbox)." }
+      ]
+    }
+  ];
+
+  var TRACE = [
+    { t: "Endpoint reachability and policy", m: "Gateway routes, throttling, and mutual TLS verified.", svc: "Azure API Management" },
+    { t: "DICOMweb conformance probes", m: "QIDO, WADO, STOW, and transfer syntax negotiation exercised.", svc: "Azure App Service" },
+    { t: "FHIR capability and search probes", m: "CapabilityStatement parsed, then required searches replayed.", svc: "Azure App Service" },
+    { t: "Sample study retrieval", m: "Synthetic study pulled and staged for checksum comparison.", svc: "Azure Storage" },
+    { t: "Exchange telemetry recorded", m: "Probe results and latencies written for trend reporting.", svc: "Microsoft Fabric" }
+  ];
+
+  var STATUS_META = {
+    pass: { label: "Conformant", cls: "st-pass", icon: "check" },
+    fail: { label: "Blocking gap", cls: "st-fail", icon: "x" },
+    workaround: { label: "Workaround required", cls: "st-workaround", icon: "alert" },
+    advisory: { label: "Optional — not offered", cls: "st-advisory", icon: "dash" }
+  };
+
+  /* ------------------------------------------------------------------ */
+  var state = { conns: [], activeId: null, view: "all", clock: 0, pending: null };
+  var el = {};
+  ["connTabs", "connPanel", "connHeading", "connEnv", "connContact", "connEndpoints", "connSummary",
+   "matrixRoot", "runWhen", "runStatus", "runProgress", "runTrace", "runValidation",
+   "blockBanner", "blockText", "outcomeBanner", "outcomeText", "decisionActions", "decisionStatus",
+   "auditList", "resetDemo",
+   "evidenceDialog", "evTitle", "evSub", "evMeta", "evRequest", "evResponse", "evVerdict", "evClose", "evDone",
+   "decisionDialog", "decTitle", "decSub", "decExplain", "decAttest", "decAttestText",
+   "decDateField", "decDate", "decNote", "decError", "decCancel", "decConfirm"].forEach(function (id) {
+    el[id] = document.getElementById(id);
+  });
+
+  function text(node, value) { node.textContent = value; }
+  function icon(name, size) {
+    return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-' + name + '"/></svg>';
+  }
+
+  function resetState() {
+    state.conns = CONNECTIONS.map(function (seed) {
+      var copy = JSON.parse(JSON.stringify(seed));
+      copy.results = copy.validated ? buildResults(copy) : null;
+      copy.outcome = null;
+      return copy;
+    });
+    state.activeId = state.conns[0].id;
+    state.view = "all";
+    state.clock = 0;
+    renderTabs();
+    render();
+  }
+
+  function buildResults(conn) {
+    return CHECKS.map(function (check) {
+      var o = conn.overrides[check.id] || {};
+      var base = BASE[check.id];
+      return {
+        check: check,
+        status: o.status || "pass",
+        note: o.note || base.note,
+        request: o.request || base.request,
+        response: o.response || base.response,
+        verdict: o.verdict || base.verdict
+      };
+    });
+  }
+
+  function active() {
+    return state.conns.filter(function (c) { return c.id === state.activeId; })[0];
+  }
+
+  function countBy(conn, status) {
+    if (!conn.results) return 0;
+    return conn.results.filter(function (r) { return r.status === status; }).length;
+  }
+
+  /** Deterministic clock so a rehearsed walkthrough always reads the same. */
+  function nextTimestamp() {
+    state.clock += 4;
+    var base = 10 * 60 + 18 + state.clock;
+    var h = Math.floor(base / 60), m = base % 60;
+    return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+  }
+
+  /* ---------------------------------------------------------- tabs */
+  function connState(conn) {
+    if (!conn.results) return "none";
+    if (countBy(conn, "fail")) return "fail";
+    if (countBy(conn, "workaround")) return "warn";
+    return "pass";
+  }
+
+  function renderTabs() {
+    el.connTabs.textContent = "";
+    state.conns.forEach(function (conn) {
+      var tab = document.createElement("button");
+      tab.type = "button";
+      tab.setAttribute("role", "tab");
+      tab.id = "tab-" + conn.id;
+      tab.setAttribute("aria-controls", "connPanel");
+      tab.dataset.conn = conn.id;
+
+      var name = document.createElement("span");
+      name.className = "t-name";
+      name.textContent = conn.name;
+
+      var meta = document.createElement("span");
+      meta.className = "t-meta";
+      var dot = document.createElement("span");
+      dot.className = "state-dot state-" + connState(conn);
+      var label = document.createElement("span");
+      label.textContent = conn.env + " · " + statusWord(conn);
+      meta.appendChild(dot);
+      meta.appendChild(label);
+
+      tab.appendChild(name);
+      tab.appendChild(meta);
+      tab.addEventListener("click", function () { selectConn(conn.id); });
+      tab.addEventListener("keydown", onTabKey);
+      el.connTabs.appendChild(tab);
+    });
+    syncTabs();
+  }
+
+  function statusWord(conn) {
+    if (conn.outcome === "certified") return "certified";
+    if (conn.outcome === "gap") return "gap raised";
+    if (!conn.results) return "not validated";
+    if (countBy(conn, "fail")) return countBy(conn, "fail") + " blocking";
+    if (countBy(conn, "workaround")) return "workaround";
+    return "ready to certify";
+  }
+
+  function syncTabs() {
+    var tabs = el.connTabs.children;
+    for (var i = 0; i < tabs.length; i++) {
+      var on = tabs[i].dataset.conn === state.activeId;
+      tabs[i].setAttribute("aria-selected", on ? "true" : "false");
+      tabs[i].tabIndex = on ? 0 : -1;
+      if (on) el.connPanel.setAttribute("aria-labelledby", tabs[i].id);
+    }
+  }
+
+  function onTabKey(event) {
+    var keys = { ArrowRight: 1, ArrowLeft: -1, Home: "first", End: "last" };
+    if (!(event.key in keys)) return;
+    event.preventDefault();
+    var ids = state.conns.map(function (c) { return c.id; });
+    var i = ids.indexOf(state.activeId);
+    var move = keys[event.key];
+    var next = move === "first" ? 0 : move === "last" ? ids.length - 1 : (i + move + ids.length) % ids.length;
+    selectConn(ids[next]);
+    var tab = document.getElementById("tab-" + ids[next]);
+    if (tab) tab.focus();
+  }
+
+  function selectConn(id) {
+    state.activeId = id;
+    render();
+  }
+
+  /* ------------------------------------------------------- rendering */
+  function renderHeader(conn) {
+    text(el.connHeading, conn.name);
+    text(el.connEnv, conn.env);
+    text(el.connContact, conn.contact);
+
+    el.connEndpoints.textContent = "";
+    [["FHIR base URL", conn.fhir], ["DICOMweb base URL", conn.dicom]].forEach(function (row) {
+      var wrap = document.createElement("div");
+      var dt = document.createElement("dt");
+      dt.textContent = row[0];
+      var dd = document.createElement("dd");
+      dd.textContent = row[1];
+      wrap.appendChild(dt);
+      wrap.appendChild(dd);
+      el.connEndpoints.appendChild(wrap);
+    });
+
+    el.connSummary.textContent = "";
+    if (!conn.results) {
+      addPill(el.connSummary, "pill-mute", "Not validated");
+    } else {
+      addPill(el.connSummary, "pill-pass", countBy(conn, "pass") + " conformant");
+      if (countBy(conn, "workaround")) addPill(el.connSummary, "pill-warn", countBy(conn, "workaround") + " workaround");
+      if (countBy(conn, "fail")) addPill(el.connSummary, "pill-fail", countBy(conn, "fail") + " blocking");
+      if (countBy(conn, "advisory")) addPill(el.connSummary, "pill-mute", countBy(conn, "advisory") + " optional absent");
+    }
+    var vol = document.createElement("span");
+    vol.style.color = "var(--ink-3)";
+    vol.textContent = conn.volume;
+    el.connSummary.appendChild(vol);
+  }
+
+  function addPill(parent, cls, label) {
+    var pill = document.createElement("span");
+    pill.className = "pill " + cls;
+    pill.textContent = label;
+    parent.appendChild(pill);
+  }
+
+  function renderMatrix(conn) {
+    el.matrixRoot.textContent = "";
+
+    if (!conn.results) {
+      var empty = document.createElement("div");
+      empty.className = "empty";
+      var p = document.createElement("p");
+      p.style.margin = "0";
+      p.textContent = "This connection has not been validated yet. Run the conformance probes to see which capabilities the site supports before committing to an integration date.";
+      empty.appendChild(p);
+      el.matrixRoot.appendChild(empty);
+      return;
+    }
+
+    GROUPS.forEach(function (group) {
+      var rows = conn.results.filter(function (r) {
+        if (r.check.group !== group.id) return false;
+        return state.view === "all" || r.status === "fail" || r.status === "workaround";
+      });
+      if (!rows.length) return;
+
+      var head = document.createElement("p");
+      head.className = "group-title";
+      head.textContent = group.label;
+      el.matrixRoot.appendChild(head);
+
+      var table = document.createElement("table");
+      table.className = "checks";
+      var thead = document.createElement("thead");
+      thead.innerHTML = "<tr><th scope=\"col\">Capability</th><th scope=\"col\">Result</th><th scope=\"col\">Evidence</th></tr>";
+      table.appendChild(thead);
+
+      var tbody = document.createElement("tbody");
+      rows.forEach(function (row) { tbody.appendChild(renderRow(row)); });
+      table.appendChild(tbody);
+      el.matrixRoot.appendChild(table);
+    });
+
+    if (!el.matrixRoot.children.length) {
+      var clear = document.createElement("div");
+      clear.className = "empty";
+      var msg = document.createElement("p");
+      msg.style.margin = "0";
+      msg.textContent = "No blocking gaps or workarounds on this connection.";
+      clear.appendChild(msg);
+      el.matrixRoot.appendChild(clear);
+    }
+  }
+
+  function renderRow(row) {
+    var meta = STATUS_META[row.status];
+    var tr = document.createElement("tr");
+
+    var tdName = document.createElement("td");
+    var name = document.createElement("div");
+    name.className = "c-name";
+    name.textContent = row.check.name + (row.check.required ? "" : " (optional)");
+    var req = document.createElement("div");
+    req.className = "c-req";
+    req.textContent = row.check.requirement;
+    var spec = document.createElement("div");
+    spec.className = "c-spec";
+    spec.textContent = row.check.spec;
+    tdName.appendChild(name);
+    tdName.appendChild(req);
+    tdName.appendChild(spec);
+
+    var tdStatus = document.createElement("td");
+    var st = document.createElement("span");
+    st.className = "st " + meta.cls;
+    st.innerHTML = icon(meta.icon, 14);
+    var stLabel = document.createElement("span");
+    stLabel.textContent = meta.label;
+    st.appendChild(stLabel);
+    var note = document.createElement("div");
+    note.className = "c-note";
+    note.textContent = row.note;
+    tdStatus.appendChild(st);
+    tdStatus.appendChild(note);
+
+    var tdEvidence = document.createElement("td");
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn-link";
+    btn.textContent = "View probe and response";
+    btn.addEventListener("click", function () { openEvidence(row); });
+    tdEvidence.appendChild(btn);
+
+    tr.appendChild(tdName);
+    tr.appendChild(tdStatus);
+    tr.appendChild(tdEvidence);
+    return tr;
+  }
+
+  function renderRun(conn) {
+    text(el.runWhen, conn.results ? "last run " + conn.ranAt : "never run");
+    text(el.runStatus, conn.results
+      ? "Completed against " + CHECKS.length + " required and optional capabilities."
+      : "No conformance run recorded for this connection.");
+    el.runProgress.hidden = true;
+    text(el.runValidation, conn.results ? "Re-run conformance validation" : "Run conformance validation");
+    el.runValidation.disabled = false;
+
+    el.runTrace.textContent = "";
+    TRACE.forEach(function (step) {
+      var li = document.createElement("li");
+      var dot = document.createElement("span");
+      dot.className = "trace-dot" + (conn.results ? "" : " is-pending");
+      dot.innerHTML = icon(conn.results ? "check" : "dash", 11);
+
+      var body = document.createElement("span");
+      var t = document.createElement("span");
+      t.className = "trace-t";
+      t.textContent = step.t;
+      var m = document.createElement("span");
+      m.className = "trace-m";
+      m.textContent = step.m;
+      var svc = document.createElement("span");
+      svc.className = "trace-svc";
+      svc.textContent = step.svc;
+      body.appendChild(t);
+      body.appendChild(m);
+      body.appendChild(svc);
+
+      li.appendChild(dot);
+      li.appendChild(body);
+      el.runTrace.appendChild(li);
+    });
+  }
+
+  function renderDecision(conn) {
+    el.decisionActions.textContent = "";
+    el.blockBanner.hidden = true;
+    el.outcomeBanner.hidden = true;
+
+    if (conn.outcome === "certified") {
+      el.outcomeBanner.hidden = false;
+      el.outcomeBanner.className = "banner banner-pass";
+      el.outcomeText.textContent = "";
+      appendBanner(el.outcomeText,
+        "Certified for production by M. Okonkwo. Certificate " + conn.certId + " covers the capabilities validated on " + conn.ranAt + ".",
+        conn.certNote);
+      addAction("Revoke certification", false, function () { openDecision(conn, "revoke"); });
+      return;
+    }
+
+    if (conn.outcome === "gap") {
+      el.outcomeBanner.hidden = false;
+      el.outcomeBanner.className = "banner banner-warn";
+      el.outcomeText.textContent = "";
+      appendBanner(el.outcomeText,
+        "Integration gap " + conn.gapId + " raised with the site. The connection stays uncertified until the gap is resolved and re-validated.",
+        conn.gapNote);
+      addAction("Withdraw gap", false, function () { openDecision(conn, "withdraw"); });
+      return;
+    }
+
+    if (!conn.results) {
+      addAction("Run conformance validation", true, function () { runValidation(); });
+      return;
+    }
+
+    var fails = conn.results.filter(function (r) { return r.status === "fail"; });
+    if (fails.length) {
+      el.blockBanner.hidden = false;
+      text(el.blockText, "Certification is unavailable. " + fails.length + " required capability" +
+        (fails.length > 1 ? " checks are" : " check is") + " a blocking gap: " +
+        fails.map(function (r) { return r.check.name; }).join(", ") +
+        ". These are resolved by the health system, so raise an integration gap instead of waiving them.");
+      addAction("Raise integration gap", true, function () { openDecision(conn, "gap"); });
+      return;
+    }
+
+    var workarounds = conn.results.filter(function (r) { return r.status === "workaround"; });
+    addAction("Certify connection for production", true, function () { openDecision(conn, "certify"); });
+    addAction("Raise integration gap", false, function () { openDecision(conn, "gap"); });
+    if (workarounds.length) {
+      el.outcomeBanner.hidden = false;
+      el.outcomeBanner.className = "banner banner-warn";
+      el.outcomeText.textContent = "";
+      appendBanner(el.outcomeText,
+        workarounds.length + " capability relies on a workaround: " +
+        workarounds.map(function (r) { return r.check.name; }).join(", ") + ".",
+        "Certifying requires acknowledging the workaround and setting a review date.");
+    }
+  }
+
+  function appendBanner(node, main, note) {
+    var m = document.createElement("span");
+    m.textContent = main;
+    node.appendChild(m);
+    if (note) {
+      var n = document.createElement("span");
+      n.className = "banner-note";
+      n.textContent = note;
+      node.appendChild(n);
+    }
+  }
+
+  function addAction(label, primary, handler) {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn" + (primary ? " btn-primary" : "");
+    btn.textContent = label;
+    btn.addEventListener("click", handler);
+    el.decisionActions.appendChild(btn);
+  }
+
+  function renderAudit(conn) {
+    el.auditList.textContent = "";
+    conn.audit.forEach(function (entry) {
+      var li = document.createElement("li");
+      var time = document.createElement("time");
+      time.textContent = entry.time;
+      var body = document.createElement("span");
+      var actor = document.createElement("span");
+      actor.className = "actor " + (entry.who === "system" ? "is-system" : "is-human");
+      actor.textContent = entry.who === "system" ? "Connector — " : "M. Okonkwo — ";
+      var what = document.createElement("span");
+      what.textContent = entry.text;
+      body.appendChild(actor);
+      body.appendChild(what);
+      li.appendChild(time);
+      li.appendChild(body);
+      el.auditList.appendChild(li);
+    });
+  }
+
+  function render() {
+    var conn = active();
+    if (!conn) return;
+    syncTabs();
+    renderTabLabels();
+    renderHeader(conn);
+    renderMatrix(conn);
+    renderRun(conn);
+    renderDecision(conn);
+    renderAudit(conn);
+  }
+
+  function renderTabLabels() {
+    var tabs = el.connTabs.children;
+    for (var i = 0; i < tabs.length; i++) {
+      var conn = state.conns[i];
+      var dot = tabs[i].querySelector(".state-dot");
+      var label = tabs[i].querySelector(".t-meta span:last-child");
+      if (dot) dot.className = "state-dot state-" + connState(conn);
+      if (label) label.textContent = conn.env + " · " + statusWord(conn);
+    }
+  }
+
+  /* --------------------------------------------------------- evidence */
+  function openEvidence(row) {
+    text(el.evTitle, row.check.name);
+    text(el.evSub, row.check.required ? "Required capability" : "Optional capability");
+
+    el.evMeta.textContent = "";
+    [["Requirement", row.check.requirement], ["Standard", row.check.spec],
+     ["Result", STATUS_META[row.status].label], ["Connection", active().name + " · " + active().env]]
+      .forEach(function (pair) {
+        var wrap = document.createElement("div");
+        var dt = document.createElement("dt");
+        dt.textContent = pair[0];
+        var dd = document.createElement("dd");
+        dd.textContent = pair[1];
+        wrap.appendChild(dt);
+        wrap.appendChild(dd);
+        el.evMeta.appendChild(wrap);
+      });
+
+    text(el.evRequest, row.request);
+    text(el.evResponse, row.response);
+    text(el.evVerdict, row.verdict);
+    showDialog(el.evidenceDialog);
+  }
+
+  /* --------------------------------------------------------- decision */
+  var DECISIONS = {
+    certify: {
+      title: "Certify connection for production",
+      explain: "Certifying records that this site meets the product's interoperability requirements and releases the connection for production scheduling.",
+      attest: "I reviewed the probe evidence for every required capability and accept this connection for production.",
+      confirm: "Record certification"
+    },
+    revoke: {
+      title: "Revoke certification",
+      explain: "Revoking returns the connection to an uncertified state. The existing audit entries are kept.",
+      attest: "I confirm this certification should no longer stand.",
+      confirm: "Revoke certification"
+    },
+    gap: {
+      title: "Raise integration gap",
+      explain: "This sends the failing capability evidence to the site's integration contact and keeps the connection uncertified.",
+      attest: "I confirm the evidence above should be raised with the health system.",
+      confirm: "Raise gap"
+    },
+    withdraw: {
+      title: "Withdraw integration gap",
+      explain: "Withdrawing closes the gap record without certifying the connection.",
+      attest: "I confirm this gap can be withdrawn.",
+      confirm: "Withdraw gap"
+    }
+  };
+
+  function openDecision(conn, kind) {
+    var spec = DECISIONS[kind];
+    state.pending = { connId: conn.id, kind: kind };
+
+    text(el.decTitle, spec.title);
+    text(el.decSub, conn.name + " · " + conn.env);
+    text(el.decExplain, spec.explain);
+    text(el.decAttestText, spec.attest);
+    text(el.decConfirm, spec.confirm);
+    el.decAttest.checked = false;
+    el.decNote.value = "";
+    text(el.decError, "");
+
+    var needsDate = kind === "certify" && conn.results &&
+      conn.results.some(function (r) { return r.status === "workaround"; });
+    el.decDateField.hidden = !needsDate;
+    el.decDate.value = needsDate ? "2026-12-15" : "";
+
+    showDialog(el.decisionDialog);
+  }
+
+  function commitDecision() {
+    if (!state.pending) return;
+    if (!el.decAttest.checked) {
+      text(el.decError, "Select the attestation to record this decision.");
+      el.decAttest.focus();
+      return;
+    }
+    if (!el.decDateField.hidden && !el.decDate.value) {
+      text(el.decError, "Set a review date for the workaround.");
+      el.decDate.focus();
+      return;
+    }
+
+    var conn = state.conns.filter(function (c) { return c.id === state.pending.connId; })[0];
+    var kind = state.pending.kind;
+    var note = el.decNote.value.trim();
+    var entries = [];
+
+    if (kind === "certify") {
+      conn.outcome = "certified";
+      conn.certId = "CERT-" + conn.id.slice(0, 4).toUpperCase() + "-" + conn.seq;
+      conn.certNote = el.decDateField.hidden
+        ? "Scope covers the capabilities validated in this run only."
+        : "Workaround accepted with a review due " + el.decDate.value + ".";
+      entries.push("Certified connection for production. Certificate " + conn.certId + " issued; attestation recorded.");
+      if (!el.decDateField.hidden) entries.push("Workaround review scheduled for " + el.decDate.value + ".");
+    } else if (kind === "revoke") {
+      conn.outcome = null;
+      entries.push("Certification revoked; connection returned to uncertified state.");
+    } else if (kind === "gap") {
+      conn.outcome = "gap";
+      conn.gapId = "GAP-" + conn.id.slice(0, 4).toUpperCase() + "-" + conn.seq;
+      var fails = (conn.results || []).filter(function (r) { return r.status === "fail"; });
+      conn.gapNote = fails.length
+        ? "Raised for: " + fails.map(function (r) { return r.check.name; }).join(", ") + "."
+        : "Raised for review of the current conformance result.";
+      entries.push("Integration gap " + conn.gapId + " raised with the site contact. Probe evidence attached.");
+    } else if (kind === "withdraw") {
+      conn.outcome = null;
+      entries.push("Integration gap withdrawn; connection returned to review.");
+    }
+
+    if (note) entries.push("Note: " + note);
+    entries.forEach(function (line) {
+      conn.audit = conn.audit.concat([{ time: nextTimestamp(), who: "human", text: line }]);
+    });
+
+    state.pending = null;
+    closeDialog(el.decisionDialog);
+    render();
+    text(el.decisionStatus, DECISIONS[kind].title + " recorded for " + conn.name + ".");
+  }
+
+  /* -------------------------------------------------------- validation */
+  function runValidation() {
+    var conn = active();
+    el.runValidation.disabled = true;
+    el.runProgress.hidden = false;
+    text(el.runStatus, "Probing " + CHECKS.length + " capabilities against " + conn.name + "…");
+
+    var step = 0;
+    var dots = el.runTrace.querySelectorAll(".trace-dot");
+    for (var i = 0; i < dots.length; i++) {
+      dots[i].className = "trace-dot is-pending";
+      dots[i].innerHTML = icon("dash", 11);
+    }
+
+    function advance() {
+      if (step < dots.length) {
+        dots[step].className = "trace-dot";
+        dots[step].innerHTML = icon("check", 11);
+        step++;
+        window.setTimeout(advance, 320);
+        return;
+      }
+      conn.results = buildResults(conn);
+      conn.validated = true;
+      conn.outcome = null;
+      var summary = countBy(conn, "pass") + " conformant, " + countBy(conn, "workaround") + " workaround, " +
+        countBy(conn, "fail") + " blocking, " + countBy(conn, "advisory") + " optional absent.";
+      conn.audit = conn.audit.concat([{ time: nextTimestamp(), who: "human", text: "Conformance run executed. Result: " + summary }]);
+      el.runProgress.hidden = true;
+      render();
+      text(el.decisionStatus, "Conformance run finished. " + summary);
+    }
+
+    window.setTimeout(advance, 320);
+  }
+
+  /* ----------------------------------------------------------- dialogs */
+  function showDialog(dialog) {
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
+  }
+  function closeDialog(dialog) {
+    if (typeof dialog.close === "function") dialog.close();
+    else dialog.removeAttribute("open");
+  }
+
+  /* ------------------------------------------------------------ events */
+  Array.prototype.forEach.call(document.querySelectorAll("[data-view]"), function (btn) {
+    btn.addEventListener("click", function () {
+      state.view = btn.dataset.view;
+      Array.prototype.forEach.call(document.querySelectorAll("[data-view]"), function (b) {
+        b.setAttribute("aria-pressed", b.dataset.view === state.view ? "true" : "false");
+      });
+      renderMatrix(active());
+    });
+  });
+
+  el.runValidation.addEventListener("click", runValidation);
+  el.evClose.addEventListener("click", function () { closeDialog(el.evidenceDialog); });
+  el.evDone.addEventListener("click", function () { closeDialog(el.evidenceDialog); });
+  el.decCancel.addEventListener("click", function () {
+    state.pending = null;
+    closeDialog(el.decisionDialog);
+  });
+  el.decConfirm.addEventListener("click", commitDecision);
+  el.decAttest.addEventListener("change", function () {
+    if (el.decAttest.checked) text(el.decError, "");
+  });
+  el.resetDemo.addEventListener("click", function () {
+    resetState();
+    text(el.decisionStatus, "Demo data restored.");
+  });
+
+  resetState();
+})();
+</script>
+</body>
+</html>

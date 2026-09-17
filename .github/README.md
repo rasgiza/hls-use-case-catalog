@@ -12,6 +12,7 @@ This workspace customization set supports future standalone mock demos. It does 
 | Independent preflight | Select **HLS Demo QA**, run `/audit-hls-demo`, or invoke `audit-hls-demo` |
 | Automatic file rules | `instructions/self-contained-demo.instructions.md` |
 | Deterministic checks | `npm run test:harness` |
+| Browser render check | `npm run check:render` |
 
 The studio resolves one catalog record, isolates read-only research, builds one artifact, and delegates QA to a separate read-only agent. The `Stop` hook runs the fast demo contract check; it exits successfully while `demos/` does not yet exist.
 

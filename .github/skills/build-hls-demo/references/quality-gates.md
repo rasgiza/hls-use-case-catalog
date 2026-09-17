@@ -6,10 +6,13 @@ Run:
 
 ```powershell
 npm run check:demos
+npm run check:render
 npm run build
 ```
 
-Both must pass. Browser console errors are failures.
+All three must pass. `check:render` loads each demo in a headless browser and fails on horizontal overflow, elements that still render despite the `hidden` attribute, and console errors. It skips when no Chromium-based browser is installed, so a manual browser pass is still required in that case.
+
+A scripted DOM harness can verify logic, but it cannot see the CSS cascade or layout. Defects such as an author `display` rule defeating `[hidden]`, or a table overflowing at 375 px, only appear in a real render.
 
 ## Behavior
 

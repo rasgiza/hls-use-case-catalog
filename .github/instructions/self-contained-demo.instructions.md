@@ -9,6 +9,11 @@ applyTo: 'demos/**/*.html'
 - The file must work from `file://`; do not use `fetch`, XHR, WebSocket, server routes, secrets, authentication, or persistence beyond optional local UI state.
 - Use a clear document title, `lang`, responsive viewport, semantic landmarks, native controls, explicit button types, visible `:focus-visible` styles, and `prefers-reduced-motion` handling.
 - Use `addEventListener`; do not use inline event attributes or `javascript:` URLs.
+- Author `display` rules outrank the user-agent `[hidden]` rule, so toggling the `hidden` attribute silently does nothing. Include `[hidden] { display: none !important; }` whenever the demo uses `hidden`.
+- A table whose rows become `display: grid` or `flex` at a breakpoint still sizes to max-content. Set the table and its `tbody` to `display: block` in the same breakpoint, or the page overflows horizontally.
+- Stacked labels need block-level boxes. Two inline `<span>` elements run together no matter what margin they carry.
+- Keep the synthetic-data disclosure on screen while the page scrolls, for example with a sticky header.
+- Keep the primary next action inside the first viewport at 1280x800; do not park it below a long secondary panel.
 - Put the workflow's primary object and next action in the first viewport. Operational tools should be dense, calm, and optimized for scanning.
 - Cover the happy path plus one credible exception, low-confidence, empty, or error state. All controls shown as actionable must work.
 - Give async simulations deterministic timing, an in-progress state, and a clear completion announcement. Avoid fake spinners that never resolve.

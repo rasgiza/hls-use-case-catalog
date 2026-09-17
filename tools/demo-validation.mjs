@@ -38,6 +38,21 @@ export function validateDemoSource(source, fileName = 'demo.html') {
     errors.push('uses motion without reduced-motion support');
   }
 
+  // Author `display` rules outrank the UA [hidden] rule, so toggling `hidden` silently does nothing.
+  if (/<[^>]+\shidden(?:\s|>|=)/i.test(source) && !/\[hidden\]\s*\{[^}]*display\s*:\s*none/i.test(source)) {
+    errors.push('uses the hidden attribute without a `[hidden] { display: none !important; }` reset');
+  }
+
+  // A table whose rows become grid/flex at a breakpoint still sizes to max-content unless it is un-tabled too.
+  for (const media of source.matchAll(/@media[^{]*\{([\s\S]*?)\n  \}/g)) {
+    const block = media[1];
+    const restyled = [...block.matchAll(/\.([\w-]+)\s+tbody\s+tr\s*\{[^}]*display\s*:\s*(?:grid|flex)/g)].map((m) => m[1]);
+    for (const cls of restyled) {
+      const untabled = new RegExp(`\\.${cls}(?:\\s*,|\\s+tbody)[^{]*\\{[^}]*display\\s*:\\s*block`).test(block);
+      if (!untabled) errors.push(`.${cls} rows switch to grid/flex without setting the table and tbody to display:block`);
+    }
+  }
+
   const externalLocalAssets = [...source.matchAll(/(?:src|href)=["'](?!https?:|data:|#|mailto:|tel:)([^"']+)["']/gi)]
     .map((match) => match[1])
     .filter((value) => !/^javascript:/i.test(value));

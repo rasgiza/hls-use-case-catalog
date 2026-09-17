@@ -7,8 +7,9 @@
     "build": "node tools/build-static.mjs",
     "check:customizations": "node tools/validate-customizations.mjs",
     "check:demos": "node tools/validate-demos.mjs",
+    "check:render": "node tools/check-render.mjs",
     "issues:preview": "node tools/demo-issues.mjs --limit 1",
     "issues:create": "node tools/demo-issues.mjs --create",
-    "test:harness": "node tools/test-demo-validation.mjs && node tools/validate-customizations.mjs && node tools/validate-demos.mjs"
+    "test:harness": "node tools/test-demo-validation.mjs && node tools/validate-customizations.mjs && node tools/validate-demos.mjs && node tools/check-render.mjs --self-test && node tools/check-render.mjs"
   }
 }

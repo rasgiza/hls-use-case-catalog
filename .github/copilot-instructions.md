@@ -27,7 +27,10 @@ Run the narrowest relevant checks, then finish demo work with:
 
 ```powershell
 npm run check:demos
+npm run check:render
 npm run build
 ```
 
-For UI work, also inspect the rendered artifact at 375, 768, 1280, and 1920 CSS pixels, exercise the primary and exception flows, and check browser console output. A source-only review is not enough.
+`check:render` loads each demo in a headless browser and fails on horizontal overflow, elements that ignore the `hidden` attribute, and console errors. It skips when no Chromium-based browser is available.
+
+For UI work, also inspect the rendered artifact at 375, 768, 1280, and 1920 CSS pixels, exercise the primary and exception flows, and check browser console output. A source-only review is not enough, and a scripted DOM harness cannot see the CSS cascade or layout.
